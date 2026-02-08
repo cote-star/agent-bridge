@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="720" viewBox="0 0 1440 720" role="img" aria-label="Agent Bridge skill setup demo flow">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b1220"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="line" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#4285F4"/>
+      <stop offset="50%" stop-color="#CC7832"/>
+      <stop offset="100%" stop-color="#10A37F"/>
+    </linearGradient>
+    <style>
+      .title { font: 700 46px ui-sans-serif, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #f8fafc; }
+      .subtitle { font: 400 24px ui-sans-serif, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #cbd5e1; }
+      .stepTitle { font: 700 24px ui-sans-serif, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #e2e8f0; }
+      .stepBody { font: 400 19px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace; fill: #93c5fd; }
+      .chip { font: 700 16px ui-sans-serif, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #d1fae5; }
+      .muted { font: 400 17px ui-sans-serif, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; fill: #94a3b8; }
+    </style>
+  </defs>
+
+  <rect width="1440" height="720" fill="url(#bg)"/>
+  <rect x="72" y="70" width="1296" height="580" rx="24" fill="#0f172a" stroke="#334155"/>
+  <rect x="72" y="70" width="1296" height="8" rx="4" fill="url(#line)"/>
+
+  <text x="120" y="145" class="title">Agent Bridge Skill + Setup Demo</text>
+  <text x="120" y="188" class="subtitle">Natural-language cross-agent prompts backed by bridge evidence</text>
+
+  <g transform="translate(120,240)">
+    <rect x="0" y="0" width="1180" height="84" rx="14" fill="#111827" stroke="#1f2937"/>
+    <text x="24" y="34" class="stepTitle">1. Diagnose</text>
+    <text x="24" y="62" class="stepBody">bridge doctor --json</text>
+    <text x="520" y="56" class="muted">Shows missing setup / provider integration blocks</text>
+  </g>
+
+  <g transform="translate(120,338)">
+    <rect x="0" y="0" width="1180" height="84" rx="14" fill="#111827" stroke="#1f2937"/>
+    <text x="24" y="34" class="stepTitle">2. Wire Providers</text>
+    <text x="24" y="62" class="stepBody">bridge setup --json</text>
+    <text x="520" y="56" class="muted">Creates .agent-bridge/* and updates AGENTS.md / CLAUDE.md / GEMINI.md</text>
+  </g>
+
+  <g transform="translate(120,436)">
+    <rect x="0" y="0" width="1180" height="84" rx="14" fill="#111827" stroke="#1f2937"/>
+    <text x="24" y="34" class="stepTitle">3. Ask Naturally</text>
+    <text x="24" y="62" class="stepBody">"What's Claude doing?"</text>
+    <text x="520" y="56" class="muted">Agent resolves intent using bridge read/list/compare</text>
+  </g>
+
+  <g transform="translate(120,534)">
+    <rect x="0" y="0" width="1180" height="84" rx="14" fill="#111827" stroke="#1f2937"/>
+    <text x="24" y="34" class="stepTitle">4. Evidence-Based Answer</text>
+    <text x="24" y="62" class="stepBody">bridge read --agent claude --cwd /workspace/payments --json</text>
+    <text x="930" y="56" class="chip">PASS</text>
+  </g>
+
+  <text x="120" y="680" class="muted">Animated source: fixtures/demo/player-skill-setup.html • Recorder: scripts/record_demo.js</text>
+</svg>

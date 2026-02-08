@@ -15,7 +15,23 @@
 
 ## Demo
 
+### Bridge Compare Demo
+
 ![Agent Bridge Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo.webp)
+
+### Skill + Setup Demo
+
+![Agent Bridge Skill Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-skill.svg)
+
+Regenerate demo assets:
+
+```bash
+# Existing bridge compare/report flow
+node scripts/record_demo.js --input fixtures/demo/player.html --output docs/demo.webp
+
+# Skill-based setup + natural language trigger flow
+node scripts/record_demo.js --input fixtures/demo/player-skill-setup.html --output docs/demo-skill.webp --duration-ms 28000
+```
 
 ## Architecture
 

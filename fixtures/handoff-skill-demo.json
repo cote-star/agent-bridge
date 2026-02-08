@@ -1,0 +1,30 @@
+{
+  "mode": "analyze",
+  "task": "Determine whether provider setup enables consistent cross-agent status reporting",
+  "success_criteria": [
+    "Setup files are created for provider integrations",
+    "Doctor reports passing integration checks",
+    "Cross-agent evidence can be read and summarized"
+  ],
+  "sources": [
+    {
+      "agent": "codex",
+      "current_session": true,
+      "cwd": "/workspace/payments"
+    },
+    {
+      "agent": "claude",
+      "current_session": true,
+      "cwd": "/workspace/payments"
+    },
+    {
+      "agent": "gemini",
+      "current_session": true,
+      "cwd": "/workspace/payments"
+    }
+  ],
+  "constraints": [
+    "Do not invent missing sessions",
+    "Evidence tags must be present in final summary"
+  ]
+}
