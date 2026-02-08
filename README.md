@@ -13,7 +13,11 @@
 3.  **Privacy-Focused**: Automatically redacts sensitive keys (API keys, AWS tokens) before output.
 4.  **Dual Parity**: Ships with both **Node.js** and **Rust** CLIs that guarantee the same output contract.
 
-## 🏗️ Architecture
+## � Demo
+
+![Inter-Agent Bridge Demo](docs/demo.webp)
+
+## �🏗️ Architecture
 
 The bridge acts as a universal translator for agent session formats.
 
