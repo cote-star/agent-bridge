@@ -1,4 +1,4 @@
-# Agent Bridge Protocol v0.3.0
+# Agent Bridge Protocol v0.4.0
 
 ## Purpose
 Define a lightweight, local-first standard for reading and coordinating cross-agent session evidence across Codex, Gemini, Claude, and Cursor.
@@ -15,7 +15,7 @@ Define a lightweight, local-first standard for reading and coordinating cross-ag
 - `analyze`
 - `feedback`
 
-## CLI Contract (v0.3)
+## CLI Contract (v0.4)
 Both implementations must support:
 
 ```bash
