@@ -1,23 +1,31 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 
 // Parse arguments
 const args = process.argv.slice(2);
 const agentArg = args.find(a => a.startsWith('--agent='));
 const idArg = args.find(a => a.startsWith('--id='));
 const chatsDirArg = args.find(a => a.startsWith('--chats-dir='));
+const cwdArg = args.find(a => a.startsWith('--cwd='));
 
 const agent = agentArg ? agentArg.split('=')[1] : 'codex';
 const sessionId = idArg ? idArg.split('=')[1] : null;
 const geminiChatsDir = chatsDirArg ? chatsDirArg.split('=')[1] : null;
+const requestedCwd = normalizePath(cwdArg ? cwdArg.split('=')[1] : process.cwd());
 
 // Helper to expand ~
 function expandHome(filepath) {
+  if (!filepath) return filepath;
   if (filepath.startsWith('~/')) {
     return path.join(os.homedir(), filepath.slice(2));
   }
   return filepath;
+}
+
+function normalizePath(filepath) {
+  return path.resolve(expandHome(filepath));
 }
 
 // Helper to escape special regex characters in user input
@@ -25,61 +33,226 @@ function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Helper to find latest file in directory recursively or flat
-function findLatestFile(dirPath, pattern, recursive = false) {
-    if (!fs.existsSync(dirPath)) return null;
+function hashPath(filepath) {
+  return crypto.createHash('sha256').update(normalizePath(filepath)).digest('hex');
+}
 
-    let latestFile = null;
-    let latestMtime = 0;
+function readJsonlLines(filePath) {
+  return fs.readFileSync(filePath, 'utf-8').split('\n').filter(Boolean);
+}
 
+function collectMatchingFiles(dirPath, pattern, recursive = false) {
+    const expandedDir = expandHome(dirPath);
+    if (!expandedDir || !fs.existsSync(expandedDir)) return [];
+
+    const matches = [];
     function search(currentDir) {
-        const files = fs.readdirSync(currentDir);
-        for (const file of files) {
-            const fullPath = path.join(currentDir, file);
-            const stat = fs.statSync(fullPath);
-            if (stat.isDirectory()) {
+        let entries = [];
+        try {
+            entries = fs.readdirSync(currentDir, { withFileTypes: true });
+        } catch (e) {
+            return;
+        }
+
+        for (const entry of entries) {
+            const fullPath = path.join(currentDir, entry.name);
+            if (entry.isDirectory()) {
                 if (recursive) search(fullPath);
-            } else if (file.match(pattern)) {
-                if (stat.mtimeMs > latestMtime) {
-                    latestMtime = stat.mtimeMs;
-                    latestFile = fullPath;
-                }
+                continue;
+            }
+
+            if (!entry.name.match(pattern)) continue;
+            try {
+                const stat = fs.statSync(fullPath);
+                matches.push({ path: fullPath, mtimeMs: stat.mtimeMs });
+            } catch (e) {
+                // Ignore files that disappear while scanning.
             }
         }
     }
-    search(dirPath);
-    return latestFile;
+    search(expandedDir);
+    matches.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    return matches;
 }
 
-// Read Codex Session
-function readCodexSession(id) {
+function findLatestFile(dirPath, pattern, recursive = false) {
+    const files = collectMatchingFiles(dirPath, pattern, recursive);
+    return files.length > 0 ? files[0].path : null;
+}
+
+function findLatestByCwd(files, cwdExtractor, expectedCwd) {
+    for (const file of files) {
+        const fileCwd = cwdExtractor(file.path);
+        if (fileCwd && fileCwd === expectedCwd) {
+            return file.path;
+        }
+    }
+    return null;
+}
+
+function getCodexSessionCwd(filePath) {
+    try {
+        const firstLine = readJsonlLines(filePath)[0];
+        if (!firstLine) return null;
+        const json = JSON.parse(firstLine);
+        if (json.type === 'session_meta' && json.payload && typeof json.payload.cwd === 'string') {
+            return normalizePath(json.payload.cwd);
+        }
+    } catch (e) {
+        return null;
+    }
+    return null;
+}
+
+function getClaudeSessionCwd(filePath) {
+    try {
+        const lines = readJsonlLines(filePath);
+        for (const line of lines) {
+            let json = null;
+            try {
+                json = JSON.parse(line);
+            } catch (e) {
+                continue;
+            }
+            if (typeof json.cwd === 'string') {
+                return normalizePath(json.cwd);
+            }
+        }
+    } catch (e) {
+        return null;
+    }
+    return null;
+}
+
+function resolveCodexTargetFile(id, cwd) {
     const baseDir = expandHome('~/.codex/sessions');
-    let targetFile = null;
+    if (!fs.existsSync(baseDir)) return null;
 
     if (id) {
         const escaped = escapeRegex(id);
-        targetFile = findLatestFile(baseDir, new RegExp(`.*${escaped}.*\\.jsonl`), true);
-    } else {
-        const date = new Date();
-        const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, '0');
-        const d = String(date.getDate()).padStart(2, '0');
-
-        const todayDir = path.join(baseDir, `${y}/${m}/${d}`);
-        targetFile = findLatestFile(todayDir, /.*\.jsonl$/);
-
-        if (!targetFile) {
-            targetFile = findLatestFile(baseDir, /.*\.jsonl$/, true);
-        }
+        return findLatestFile(baseDir, new RegExp(`.*${escaped}.*\\.jsonl`), true);
     }
 
+    const allFiles = collectMatchingFiles(baseDir, /.*\.jsonl$/, true);
+    if (allFiles.length === 0) return null;
+
+    const scoped = findLatestByCwd(allFiles, getCodexSessionCwd, cwd);
+    if (scoped) return scoped;
+
+    console.error(`Warning: no Codex session matched cwd ${cwd}; falling back to latest session.`);
+    return allFiles[0].path;
+}
+
+function listGeminiChatDirs() {
+    const tmpBase = expandHome('~/.gemini/tmp');
+    if (!fs.existsSync(tmpBase)) return [];
+
+    let entries = [];
+    try {
+        entries = fs.readdirSync(tmpBase, { withFileTypes: true });
+    } catch (e) {
+        return [];
+    }
+
+    const dirs = [];
+    for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const chatsDir = path.join(tmpBase, entry.name, 'chats');
+        if (fs.existsSync(chatsDir)) {
+            dirs.push(chatsDir);
+        }
+    }
+    return dirs;
+}
+
+function resolveGeminiChatDirs(chatsDir, cwd) {
+    if (chatsDir) {
+        const expanded = expandHome(chatsDir);
+        return fs.existsSync(expanded) ? [expanded] : [];
+    }
+
+    const ordered = [];
+    const seen = new Set();
+    function addDir(dirPath) {
+        if (!dirPath) return;
+        if (seen.has(dirPath)) return;
+        if (!fs.existsSync(dirPath)) return;
+        ordered.push(dirPath);
+        seen.add(dirPath);
+    }
+
+    const scopedHash = hashPath(cwd);
+    const scopedDir = expandHome(`~/.gemini/tmp/${scopedHash}/chats`);
+    addDir(scopedDir);
+
+    for (const dir of listGeminiChatDirs()) {
+        addDir(dir);
+    }
+    return ordered;
+}
+
+function resolveGeminiTargetFile(id, chatsDir, cwd) {
+    const dirs = resolveGeminiChatDirs(chatsDir, cwd);
+    if (dirs.length === 0) return { targetFile: null, searchedDirs: [] };
+
+    const pattern = id
+        ? new RegExp(`.*${escapeRegex(id)}.*\\.json`)
+        : /session-.*\.json$/;
+
+    const candidates = [];
+    for (const dir of dirs) {
+        const files = collectMatchingFiles(dir, pattern, false);
+        for (const file of files) {
+            candidates.push(file);
+        }
+    }
+    candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    return {
+        targetFile: candidates.length > 0 ? candidates[0].path : null,
+        searchedDirs: dirs,
+    };
+}
+
+function resolveClaudeTargetFile(id, cwd) {
+    const baseDir = expandHome('~/.claude/projects');
+    if (!fs.existsSync(baseDir)) return null;
+
+    if (id) {
+        const escaped = escapeRegex(id);
+        return findLatestFile(baseDir, new RegExp(`.*${escaped}.*\\.jsonl`), true);
+    }
+
+    const allFiles = collectMatchingFiles(baseDir, /.*\.jsonl$/, true);
+    if (allFiles.length === 0) return null;
+
+    const scoped = findLatestByCwd(allFiles, getClaudeSessionCwd, cwd);
+    if (scoped) return scoped;
+
+    console.error(`Warning: no Claude session matched cwd ${cwd}; falling back to latest session.`);
+    return allFiles[0].path;
+}
+
+function extractText(value) {
+    if (typeof value === 'string') return value;
+    if (!Array.isArray(value)) return '';
+    return value
+        .map(part => {
+            if (typeof part === 'string') return part;
+            if (part && typeof part.text === 'string') return part.text;
+            return '';
+        })
+        .join('');
+}
+
+// Read Codex Session
+function readCodexSession(id, cwd) {
+    const targetFile = resolveCodexTargetFile(id, cwd);
     if (!targetFile) {
         console.error('No Codex session found.');
         process.exit(1);
     }
 
-    const content = fs.readFileSync(targetFile, 'utf-8');
-    const lines = content.trim().split('\n');
+    const lines = readJsonlLines(targetFile);
     const messages = [];
     let skipped = 0;
 
@@ -104,12 +277,9 @@ function readCodexSession(id) {
     console.log('---');
 
     if (messages.length > 0) {
-        const lastMsg = messages[messages.length - 1];
-        if (Array.isArray(lastMsg.content)) {
-             console.log(lastMsg.content.map(c => c.text || '').join(''));
-        } else {
-             console.log(lastMsg.content);
-        }
+        const assistantMsgs = messages.filter(m => (m.role || '').toLowerCase() === 'assistant');
+        const msg = assistantMsgs.length > 0 ? assistantMsgs[assistantMsgs.length - 1] : messages[messages.length - 1];
+        console.log(extractText(msg.content) || '[No text content]');
     } else {
         console.log("Could not extract structured messages. Showing last 20 raw lines:");
         console.log(lines.slice(-20).join('\n'));
@@ -117,23 +287,18 @@ function readCodexSession(id) {
 }
 
 // Read Gemini Session
-function readGeminiSession(id, chatsDir) {
-    if (!chatsDir) {
-        console.error('Gemini chats directory not provided (--chats-dir).');
-        process.exit(1);
-    }
-
-    const expandedDir = expandHome(chatsDir);
-    let targetFile = null;
-    if (id) {
-        const escaped = escapeRegex(id);
-        targetFile = findLatestFile(expandedDir, new RegExp(`.*${escaped}.*\\.json`), false);
-    } else {
-        targetFile = findLatestFile(expandedDir, /session-.*\.json$/);
-    }
-
+function readGeminiSession(id, chatsDir, cwd) {
+    const resolved = resolveGeminiTargetFile(id, chatsDir, cwd);
+    const targetFile = resolved.targetFile;
     if (!targetFile) {
-        console.error('No Gemini session found in ' + expandedDir);
+        if (chatsDir) {
+            console.error('No Gemini session found in ' + expandHome(chatsDir));
+        } else {
+            console.error('No Gemini session found. Searched chats directories:');
+            for (const dir of resolved.searchedDirs) {
+                console.error(' - ' + dir);
+            }
+        }
         process.exit(1);
     }
 
@@ -145,56 +310,66 @@ function readGeminiSession(id, chatsDir) {
 
         // Actual Gemini CLI format: { sessionId, messages: [ { type: "user"|"gemini", content: "..." } ] }
         if (Array.isArray(session.messages)) {
-            const lastMsg = session.messages[session.messages.length - 1];
+            const lastMsg =
+                [...session.messages].reverse().find(m => {
+                    const type = (m.type || '').toLowerCase();
+                    return type === 'gemini' || type === 'assistant' || type === 'model';
+                }) || session.messages[session.messages.length - 1];
             if (lastMsg) {
                 const role = (lastMsg.type || 'unknown').toUpperCase();
                 console.log(`[${role}]`);
-                console.log(lastMsg.content || '');
+                if (typeof lastMsg.content === 'string') {
+                    console.log(lastMsg.content);
+                } else {
+                    console.log(extractText(lastMsg.content) || '[No text content]');
+                }
+            } else {
+                console.error('Gemini session has no messages.');
+                process.exit(1);
             }
         } else if (session.history) {
             // Legacy/API format fallback: { history: [ { role, parts: [...] } ] }
-            const lastTurn = session.history[session.history.length - 1];
+            const lastTurn =
+                [...session.history].reverse().find(turn => (turn.role || '').toLowerCase() !== 'user') ||
+                session.history[session.history.length - 1];
             if (lastTurn) {
                 console.log(`[${lastTurn.role.toUpperCase()}]`);
                 if (Array.isArray(lastTurn.parts)) {
-                    console.log(lastTurn.parts.map(p => p.text).join('\n'));
+                    console.log(lastTurn.parts.map(p => p.text || '').join('\n'));
                 } else if (typeof lastTurn.parts === 'string') {
                     console.log(lastTurn.parts);
+                } else {
+                    console.log('[No text content]');
                 }
+            } else {
+                console.error('Gemini history is empty.');
+                process.exit(1);
             }
         } else {
-             console.log("Unknown JSON structure. Dumping summary:");
-             console.log(JSON.stringify(session, null, 2).slice(0, 1000) + "...");
+             console.error('Unknown Gemini session schema. Supported fields: messages, history.');
+             process.exit(1);
         }
     } catch (e) {
         console.error("Failed to parse Gemini JSON:", e.message);
+        process.exit(1);
     }
 }
 
 // Read Claude Session
-function readClaudeSession(id) {
+function readClaudeSession(id, cwd) {
     const baseDir = expandHome('~/.claude/projects');
     if (!fs.existsSync(baseDir)) {
         console.error('Claude projects directory not found: ' + baseDir);
         process.exit(1);
     }
 
-    let targetFile = null;
-
-    if (id) {
-        const escaped = escapeRegex(id);
-        targetFile = findLatestFile(baseDir, new RegExp(`.*${escaped}.*\\.jsonl`), true);
-    } else {
-        targetFile = findLatestFile(baseDir, /.*\.jsonl$/, true);
-    }
-
+    const targetFile = resolveClaudeTargetFile(id, cwd);
     if (!targetFile) {
         console.error('No Claude session found.');
         process.exit(1);
     }
 
-    const content = fs.readFileSync(targetFile, 'utf-8');
-    const lines = content.trim().split('\n');
+    const lines = readJsonlLines(targetFile);
     const messages = [];
     let skipped = 0;
 
@@ -241,11 +416,11 @@ function readClaudeSession(id) {
 
 // Main Dispatch
 if (agent === 'codex') {
-    readCodexSession(sessionId);
+    readCodexSession(sessionId, requestedCwd);
 } else if (agent === 'gemini') {
-    readGeminiSession(sessionId, geminiChatsDir);
+    readGeminiSession(sessionId, geminiChatsDir, requestedCwd);
 } else if (agent === 'claude') {
-    readClaudeSession(sessionId);
+    readClaudeSession(sessionId, requestedCwd);
 } else {
     console.error(`Unknown agent: ${agent}. Supported: codex, gemini, claude`);
     process.exit(1);

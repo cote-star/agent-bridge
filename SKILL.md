@@ -31,43 +31,61 @@ If any critical field is missing, ask only for missing fields and keep the reque
 
 ### Reading Codex Sessions
 
-To retrieve the latest output or a specific session from Codex:
+To retrieve output from Codex:
 
-1.  **Latest Session**:
+1.  **Latest Session Scoped To Current CWD (default)**:
     ```bash
     node scripts/read_session.cjs --agent=codex
     ```
-2.  **Specific Session (by ID/UUID)**:
+2.  **Latest Session For Explicit Project Path**:
+    ```bash
+    node scripts/read_session.cjs --agent=codex --cwd=<project_path>
+    ```
+3.  **Specific Session (by ID/UUID)**:
     ```bash
     node scripts/read_session.cjs --agent=codex --id=<session_uuid>
     ```
 
 ### Reading Gemini Sessions
 
-To retrieve the history of a Gemini session (including the current one or previous ones in the same project):
+To retrieve the history of a Gemini session:
 
-1.  **Identify Chats Directory**:
-    - Locate the **Project Temporary Directory** provided in your system prompt (e.g., `/Users/user/.gemini/tmp/<hash>`).
-    - Append `/chats` to this path.
-    
-2.  **Latest Session**:
+1.  **Latest Session Scoped To Current CWD (default)**:
+    ```bash
+    node scripts/read_session.cjs --agent=gemini
+    ```
+2.  **Specific Session By ID (auto-discovered from known chat dirs)**:
+    ```bash
+    node scripts/read_session.cjs --agent=gemini --id=<session_id>
+    ```
+3.  **Explicit Chats Directory**:
     ```bash
     node scripts/read_session.cjs --agent=gemini --chats-dir=<path_to_chats_dir>
     ```
-3.  **Specific Session**:
+4.  **Specific Session In Explicit Directory**:
     ```bash
     node scripts/read_session.cjs --agent=gemini --chats-dir=<path_to_chats_dir> --id=<session_id>
     ```
+5.  **Scope To Explicit Project Path**:
+    ```bash
+    node scripts/read_session.cjs --agent=gemini --cwd=<project_path>
+    ```
+
+Gemini project chat folders are auto-resolved from `sha256(<cwd>)` at `~/.gemini/tmp/<project_hash>/chats`.
 
 ### Reading Claude Sessions
 
-To retrieve the latest output or a specific session from Claude Code:
+To retrieve output from Claude Code:
 
-1.  **Latest Session**:
+1.  **Latest Session Scoped To Current CWD (default)**:
     ```bash
     node scripts/read_session.cjs --agent=claude
     ```
-2.  **Specific Session (by ID/UUID)**:
+2.  **Latest Session For Explicit Project Path**:
+    ```bash
+    node scripts/read_session.cjs --agent=claude --cwd=<project_path>
+    ```
+3.  **Specific Session (by ID/UUID)**:
     ```bash
     node scripts/read_session.cjs --agent=claude --id=<session_uuid>
     ```
@@ -77,4 +95,5 @@ Claude sessions are stored as JSONL files under `~/.claude/projects/<project-has
 ## Output
 
 The parser script outputs the last assistant turn (or a fallback summary) to `stdout`.
+For hard failures (missing sessions, parse errors, unsupported schema), it exits non-zero.
 Your final response should follow the structured format in `references/universal-coordinator.md`, with evidence tags per source and actionable next actions.
