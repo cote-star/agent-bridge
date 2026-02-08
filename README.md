@@ -21,22 +21,11 @@
 
 The bridge acts as a universal translator for agent session formats. Each agent has a dedicated **adapter** that handles session resolution, reading, and listing.
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant BridgeCLI
-    participant Codex as ~/.codex/sessions
-    participant Gemini as ~/.gemini/tmp
-    participant Claude as ~/.claude/projects
-    participant Cursor as ~/Library/.../Cursor
-
-    User->>BridgeCLI: bridge read --agent codex --id "fix-bug"
-    BridgeCLI->>Codex: Scan & Parse JSONL
-    Codex-->>BridgeCLI: Raw Session Data
-    BridgeCLI->>BridgeCLI: Redact Secrets (sk-..., AKIA..., Bearer ...)
-    BridgeCLI->>BridgeCLI: Format via Schema
-    BridgeCLI-->>User: Structured JSON Output
-```
+<!-- GitHub renders the mermaid block; npm/others see the image fallback -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://mermaid.ink/img/c2VxdWVuY2VEaWFncmFtCiAgICBwYXJ0aWNpcGFudCBVc2VyCiAgICBwYXJ0aWNpcGFudCBCcmlkZ2VDTEkKICAgIHBhcnRpY2lwYW50IENvZGV4IGFzIH4vLmNvZGV4L3Nlc3Npb25zCiAgICBwYXJ0aWNpcGFudCBHZW1pbmkgYXMgfi8uZ2VtaW5pL3RtcAogICAgcGFydGljaXBhbnQgQ2xhdWRlIGFzIH4vLmNsYXVkZS9wcm9qZWN0cwogICAgcGFydGljaXBhbnQgQ3Vyc29yIGFzIH4vTGlicmFyeS8uLi4vQ3Vyc29yCgogICAgVXNlci0+PkJyaWRnZUNMSTogYnJpZGdlIHJlYWQgLS1hZ2VudCBjb2RleCAtLWlkICJmaXgtYnVnIgogICAgQnJpZGdlQ0xJLT4+Q29kZXg6IFNjYW4gJiBQYXJzZSBKU09OTAogICAgQ29kZXgtLT4+QnJpZGdlQ0xJOiBSYXcgU2Vzc2lvbiBEYXRhCiAgICBCcmlkZ2VDTEktPj5CcmlkZ2VDTEk6IFJlZGFjdCBTZWNyZXRzIChzay0uLi4sIEFLSUEuLi4sIEJlYXJlciAuLi4pCiAgICBCcmlkZ2VDTEktPj5CcmlkZ2VDTEk6IEZvcm1hdCB2aWEgU2NoZW1hCiAgICBCcmlkZ2VDTEktLT4+VXNlcjogU3RydWN0dXJlZCBKU09OIE91dHB1dAo=?theme=dark">
+  <img alt="Architecture sequence diagram" src="https://mermaid.ink/img/c2VxdWVuY2VEaWFncmFtCiAgICBwYXJ0aWNpcGFudCBVc2VyCiAgICBwYXJ0aWNpcGFudCBCcmlkZ2VDTEkKICAgIHBhcnRpY2lwYW50IENvZGV4IGFzIH4vLmNvZGV4L3Nlc3Npb25zCiAgICBwYXJ0aWNpcGFudCBHZW1pbmkgYXMgfi8uZ2VtaW5pL3RtcAogICAgcGFydGljaXBhbnQgQ2xhdWRlIGFzIH4vLmNsYXVkZS9wcm9qZWN0cwogICAgcGFydGljaXBhbnQgQ3Vyc29yIGFzIH4vTGlicmFyeS8uLi4vQ3Vyc29yCgogICAgVXNlci0+PkJyaWRnZUNMSTogYnJpZGdlIHJlYWQgLS1hZ2VudCBjb2RleCAtLWlkICJmaXgtYnVnIgogICAgQnJpZGdlQ0xJLT4+Q29kZXg6IFNjYW4gJiBQYXJzZSBKU09OTAogICAgQ29kZXgtLT4+QnJpZGdlQ0xJOiBSYXcgU2Vzc2lvbiBEYXRhCiAgICBCcmlkZ2VDTEktPj5CcmlkZ2VDTEk6IFJlZGFjdCBTZWNyZXRzIChzay0uLi4sIEFLSUEuLi4sIEJlYXJlciAuLi4pCiAgICBCcmlkZ2VDTEktPj5CcmlkZ2VDTEk6IEZvcm1hdCB2aWEgU2NoZW1hCiAgICBCcmlkZ2VDTEktLT4+VXNlcjogU3RydWN0dXJlZCBKU09OIE91dHB1dAo=">
+</picture>
 
 ## Feature Matrix
 
@@ -252,7 +241,7 @@ Redaction is applied to `api_key`, `apikey`, `token`, `secret`, and `password` a
 
 ## Development
 
-- **Protocol**: See [PROTOCOL.md](./PROTOCOL.md) for the CLI and JSON specification.
+- **Protocol**: See [`PROTOCOL.md`](https://github.com/cote-star/agent-bridge/blob/main/PROTOCOL.md) for the CLI and JSON specification.
 - **Contributing**: See [`CONTRIBUTING.md`](https://github.com/cote-star/agent-bridge/blob/main/CONTRIBUTING.md) for setup, tests, and PR expectations.
 
 ### Project Structure
