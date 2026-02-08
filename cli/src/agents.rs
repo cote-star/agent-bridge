@@ -294,15 +294,30 @@ fn parse_codex_jsonl(path: &Path, last_n: usize) -> Result<ParsedContent> {
         session_id = path.file_stem().and_then(|s| s.to_str()).map(|s| s.to_string());
     }
 
+    let assistant_msgs: Vec<&Value> = messages.iter().filter(|m| {
+        m["role"].as_str().unwrap_or("").eq_ignore_ascii_case("assistant")
+    }).collect();
+
     if !messages.is_empty() {
-        let mut selected = messages.last().cloned();
-        for message in messages.iter().rev() {
-            if message["role"].as_str().unwrap_or("").eq_ignore_ascii_case("assistant") {
-                selected = Some(message.clone());
-                break;
-            }
+        if last_n > 1 && !assistant_msgs.is_empty() {
+            let selected: Vec<&Value> = assistant_msgs.iter().rev().take(last_n).rev().cloned().collect();
+            let messages_returned = selected.len();
+            let content = selected.iter().map(|m| {
+                let text = extract_text(&m["content"]);
+                if text.is_empty() { "[No text content]".to_string() } else { text }
+            }).collect::<Vec<String>>().join("\n---\n");
+            return Ok(ParsedContent {
+                content: redact_sensitive_text(&content),
+                warnings,
+                session_id,
+                cwd: session_cwd,
+                timestamp,
+                message_count,
+                messages_returned,
+            });
         }
 
+        let selected = assistant_msgs.last().cloned().or_else(|| messages.last());
         if let Some(message) = selected {
             let text = extract_text(&message["content"]);
             return Ok(ParsedContent {
@@ -316,6 +331,7 @@ fn parse_codex_jsonl(path: &Path, last_n: usize) -> Result<ParsedContent> {
                 cwd: session_cwd,
                 timestamp,
                 message_count,
+                messages_returned: 1,
             });
         }
     }
@@ -339,10 +355,11 @@ fn parse_codex_jsonl(path: &Path, last_n: usize) -> Result<ParsedContent> {
         cwd: session_cwd,
         timestamp,
         message_count,
+        messages_returned: 0,
     })
 }
 
-fn parse_claude_jsonl(path: &Path) -> Result<ParsedContent> {
+fn parse_claude_jsonl(path: &Path, last_n: usize) -> Result<ParsedContent> {
     let lines = read_jsonl_lines(path)?;
     let mut messages: Vec<String> = Vec::new();
     let mut skipped = 0usize;
@@ -400,14 +417,29 @@ fn parse_claude_jsonl(path: &Path) -> Result<ParsedContent> {
     let timestamp = file_modified_iso(path);
     let session_id = path.file_stem().and_then(|s| s.to_str()).map(|s| s.to_string());
 
-    if let Some(last) = messages.last() {
+    if !messages.is_empty() {
+        if last_n > 1 {
+            let selected: Vec<&String> = messages.iter().rev().take(last_n).collect::<Vec<_>>().into_iter().rev().collect();
+            let messages_returned = selected.len();
+            let content = selected.iter().map(|s| s.as_str()).collect::<Vec<&str>>().join("\n---\n");
+            return Ok(ParsedContent {
+                content: redact_sensitive_text(&content),
+                warnings,
+                session_id,
+                cwd: session_cwd,
+                timestamp,
+                message_count,
+                messages_returned,
+            });
+        }
         return Ok(ParsedContent {
-            content: redact_sensitive_text(last),
+            content: redact_sensitive_text(messages.last().unwrap()),
             warnings,
             session_id,
             cwd: session_cwd,
             timestamp,
             message_count,
+            messages_returned: 1,
         });
     }
 
@@ -430,10 +462,11 @@ fn parse_claude_jsonl(path: &Path) -> Result<ParsedContent> {
         cwd: session_cwd,
         timestamp,
         message_count,
+        messages_returned: 0,
     })
 }
 
-fn parse_gemini_json(path: &Path) -> Result<ParsedContent> {
+fn parse_gemini_json(path: &Path, last_n: usize) -> Result<ParsedContent> {
     let raw_content = fs::read_to_string(path)?;
     let session: Value = serde_json::from_str(&raw_content)
         .map_err(|e| anyhow!("Failed to parse Gemini JSON: {}", e))?;
@@ -450,19 +483,34 @@ fn parse_gemini_json(path: &Path) -> Result<ParsedContent> {
             }).unwrap_or(false)
         }).count();
 
-        let selected = messages
-            .iter()
-            .rev()
-            .find(|message| {
-                message["type"]
-                    .as_str()
-                    .map(|t| {
-                        let lower = t.to_ascii_lowercase();
-                        lower == "gemini" || lower == "assistant" || lower == "model"
-                    })
-                    .unwrap_or(false)
-            })
-            .or_else(|| messages.last());
+        let is_assistant_msg = |m: &&Value| {
+            m["type"].as_str().map(|t| {
+                let lower = t.to_ascii_lowercase();
+                lower == "gemini" || lower == "assistant" || lower == "model"
+            }).unwrap_or(false)
+        };
+
+        let assistant_msgs: Vec<&Value> = messages.iter().filter(is_assistant_msg).collect();
+
+        if last_n > 1 && !assistant_msgs.is_empty() {
+            let selected: Vec<&&Value> = assistant_msgs.iter().rev().take(last_n).collect::<Vec<_>>().into_iter().rev().collect();
+            let messages_returned = selected.len();
+            let content = selected.iter().map(|m| {
+                let text = extract_text(&m["content"]);
+                if text.is_empty() { "[No text content]".to_string() } else { text }
+            }).collect::<Vec<String>>().join("\n---\n");
+            return Ok(ParsedContent {
+                content: redact_sensitive_text(&content),
+                warnings: Vec::new(),
+                session_id,
+                cwd: None,
+                timestamp,
+                message_count: assistant_count,
+                messages_returned,
+            });
+        }
+
+        let selected = messages.iter().rev().find(is_assistant_msg).or_else(|| messages.last());
 
         if let Some(message) = selected {
             return Ok(ParsedContent {
@@ -479,6 +527,7 @@ fn parse_gemini_json(path: &Path) -> Result<ParsedContent> {
                 cwd: None,
                 timestamp,
                 message_count: assistant_count,
+                messages_returned: 1,
             });
         }
         return Err(anyhow!("Gemini session has no messages."));
@@ -489,30 +538,41 @@ fn parse_gemini_json(path: &Path) -> Result<ParsedContent> {
             !t["role"].as_str().map(|r| r.eq_ignore_ascii_case("user")).unwrap_or(false)
         }).count();
 
-        let selected = history
-            .iter()
-            .rev()
-            .find(|turn| {
-                !turn["role"]
-                    .as_str()
-                    .map(|role| role.eq_ignore_ascii_case("user"))
-                    .unwrap_or(false)
-            })
-            .or_else(|| history.last());
-
-        if let Some(turn) = selected {
+        let extract_turn_text = |turn: &Value| -> String {
             let parts = &turn["parts"];
-            let text = if let Some(arr) = parts.as_array() {
-                arr.iter()
-                    .map(|part| part["text"].as_str().unwrap_or(""))
-                    .collect::<Vec<&str>>()
-                    .join("\n")
+            if let Some(arr) = parts.as_array() {
+                arr.iter().map(|part| part["text"].as_str().unwrap_or("")).collect::<Vec<&str>>().join("\n")
             } else if let Some(raw) = parts.as_str() {
                 raw.to_string()
             } else {
                 "[No text content]".to_string()
-            };
+            }
+        };
 
+        let is_not_user = |t: &&Value| {
+            !t["role"].as_str().map(|role| role.eq_ignore_ascii_case("user")).unwrap_or(false)
+        };
+
+        let assistant_turns: Vec<&Value> = history.iter().filter(is_not_user).collect();
+
+        if last_n > 1 && !assistant_turns.is_empty() {
+            let selected: Vec<&&Value> = assistant_turns.iter().rev().take(last_n).collect::<Vec<_>>().into_iter().rev().collect();
+            let messages_returned = selected.len();
+            let content = selected.iter().map(|t| extract_turn_text(t)).collect::<Vec<String>>().join("\n---\n");
+            return Ok(ParsedContent {
+                content: redact_sensitive_text(&content),
+                warnings: Vec::new(),
+                session_id,
+                cwd: None,
+                timestamp,
+                message_count: assistant_count,
+                messages_returned,
+            });
+        }
+
+        let selected = history.iter().rev().find(is_not_user).or_else(|| history.last());
+        if let Some(turn) = selected {
+            let text = extract_turn_text(turn);
             return Ok(ParsedContent {
                 content: redact_sensitive_text(&text),
                 warnings: Vec::new(),
@@ -520,6 +580,7 @@ fn parse_gemini_json(path: &Path) -> Result<ParsedContent> {
                 cwd: None,
                 timestamp,
                 message_count: assistant_count,
+                messages_returned: 1,
             });
         }
 
@@ -923,6 +984,195 @@ fn redact_assignment_for_key(input: &str, keyword: &str) -> String {
     }
 
     out
+}
+
+// --- List functions ---
+
+pub fn list_codex_sessions(cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
+    let base_dir = codex_base_dir();
+    if !base_dir.exists() { return Ok(Vec::new()); }
+    let files = collect_matching_files(&base_dir, true, &|p| has_extension(p, "jsonl"))?;
+    let mut entries = Vec::new();
+    for file in files.iter().take(limit) {
+        let file_cwd = get_codex_session_cwd(&file.path);
+        let session_id = file.path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string();
+        entries.push(serde_json::json!({
+            "session_id": session_id,
+            "agent": "codex",
+            "cwd": file_cwd.map(|p| p.to_string_lossy().to_string()),
+            "modified_at": file_modified_iso(&file.path),
+            "file_path": file.path.to_string_lossy().to_string(),
+        }));
+    }
+    Ok(entries)
+}
+
+pub fn list_claude_sessions(cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
+    let base_dir = claude_base_dir();
+    if !base_dir.exists() { return Ok(Vec::new()); }
+    let files = collect_matching_files(&base_dir, true, &|p| has_extension(p, "jsonl"))?;
+    let mut entries = Vec::new();
+    for file in files.iter().take(limit) {
+        let file_cwd = get_claude_session_cwd(&file.path);
+        let session_id = file.path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string();
+        entries.push(serde_json::json!({
+            "session_id": session_id,
+            "agent": "claude",
+            "cwd": file_cwd.map(|p| p.to_string_lossy().to_string()),
+            "modified_at": file_modified_iso(&file.path),
+            "file_path": file.path.to_string_lossy().to_string(),
+        }));
+    }
+    Ok(entries)
+}
+
+pub fn list_gemini_sessions(cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
+    let dirs = resolve_gemini_chat_dirs(None, cwd)?;
+    let mut candidates = Vec::new();
+    for dir in &dirs {
+        let mut files = collect_matching_files(dir, false, &|p| {
+            has_extension(p, "json") && p.file_name().and_then(|n| n.to_str()).map(|n| n.starts_with("session-")).unwrap_or(false)
+        })?;
+        candidates.append(&mut files);
+    }
+    sort_files_by_mtime_desc(&mut candidates);
+    let mut entries = Vec::new();
+    for file in candidates.iter().take(limit) {
+        let session_id = file.path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string();
+        entries.push(serde_json::json!({
+            "session_id": session_id,
+            "agent": "gemini",
+            "cwd": serde_json::Value::Null,
+            "modified_at": file_modified_iso(&file.path),
+            "file_path": file.path.to_string_lossy().to_string(),
+        }));
+    }
+    Ok(entries)
+}
+
+// --- Cursor support ---
+
+fn cursor_base_dir() -> PathBuf {
+    std::env::var("BRIDGE_CURSOR_DATA_DIR")
+        .ok()
+        .and_then(|value| expand_home(&value))
+        .unwrap_or_else(|| {
+            // macOS: ~/Library/Application Support/Cursor
+            // Linux: ~/.cursor
+            if cfg!(target_os = "macos") {
+                dirs::home_dir()
+                    .map(|h| h.join("Library/Application Support/Cursor"))
+                    .unwrap_or_else(|| PathBuf::from("~/.cursor"))
+            } else {
+                expand_home("~/.cursor").unwrap_or_else(|| PathBuf::from("~/.cursor"))
+            }
+        })
+}
+
+pub fn read_cursor_session(id: Option<&str>, cwd: &str) -> Result<Session> {
+    let base_dir = cursor_base_dir();
+    if !base_dir.exists() {
+        return Err(anyhow!("No Cursor session found. Data directory not found: {}", base_dir.display()));
+    }
+
+    let workspaces_dir = base_dir.join("User").join("workspaceStorage");
+    if !workspaces_dir.exists() {
+        return Err(anyhow!("No Cursor session found. Workspace storage not found: {}", workspaces_dir.display()));
+    }
+
+    // Look for composer/chat state files in workspace storage
+    let files = collect_matching_files(&workspaces_dir, true, &|p| {
+        let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        (name.ends_with(".json") || name.ends_with(".jsonl"))
+            && (name.contains("chat") || name.contains("composer") || name.contains("conversation"))
+            && id.map(|needle| p.to_string_lossy().contains(needle)).unwrap_or(true)
+    })?;
+
+    if files.is_empty() {
+        return Err(anyhow!("No Cursor session found."));
+    }
+
+    let target_file = files[0].path.clone();
+
+    // Try JSON first, then JSONL
+    let content_str = fs::read_to_string(&target_file)?;
+    let content = if let Ok(json) = serde_json::from_str::<Value>(&content_str) {
+        // Extract text from JSON structure
+        if let Some(messages) = json.get("messages").and_then(|m| m.as_array()) {
+            let assistant_msgs: Vec<String> = messages.iter()
+                .filter(|m| m["role"].as_str().map(|r| r == "assistant").unwrap_or(false))
+                .filter_map(|m| m["content"].as_str().map(|s| s.to_string()))
+                .collect();
+            if let Some(last) = assistant_msgs.last() {
+                last.clone()
+            } else {
+                "[No assistant messages found]".to_string()
+            }
+        } else if let Some(text) = json.get("content").and_then(|c| c.as_str()) {
+            text.to_string()
+        } else {
+            format!("{}", serde_json::to_string_pretty(&json).unwrap_or_default())
+        }
+    } else {
+        // JSONL format
+        let mut messages = Vec::new();
+        for line in content_str.lines().filter(|l| !l.is_empty()) {
+            if let Ok(json) = serde_json::from_str::<Value>(line) {
+                if json["role"].as_str().map(|r| r == "assistant").unwrap_or(false) {
+                    if let Some(text) = json["content"].as_str() {
+                        messages.push(text.to_string());
+                    }
+                }
+            }
+        }
+        if let Some(last) = messages.last() {
+            last.clone()
+        } else {
+            content_str.lines().rev().take(20).collect::<Vec<&str>>().into_iter().rev().collect::<Vec<&str>>().join("\n")
+        }
+    };
+
+    let session_id = target_file.file_stem().and_then(|s| s.to_str()).map(|s| s.to_string());
+    let timestamp = file_modified_iso(&target_file);
+
+    Ok(Session {
+        agent: "cursor",
+        content: redact_sensitive_text(&content),
+        source: target_file.to_string_lossy().to_string(),
+        warnings: Vec::new(),
+        session_id,
+        cwd: None,
+        timestamp,
+        message_count: 1,
+        messages_returned: 1,
+    })
+}
+
+pub fn list_cursor_sessions(cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
+    let base_dir = cursor_base_dir();
+    if !base_dir.exists() { return Ok(Vec::new()); }
+
+    let workspaces_dir = base_dir.join("User").join("workspaceStorage");
+    if !workspaces_dir.exists() { return Ok(Vec::new()); }
+
+    let files = collect_matching_files(&workspaces_dir, true, &|p| {
+        let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        (name.ends_with(".json") || name.ends_with(".jsonl"))
+            && (name.contains("chat") || name.contains("composer") || name.contains("conversation"))
+    })?;
+
+    let mut entries = Vec::new();
+    for file in files.iter().take(limit) {
+        let session_id = file.path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string();
+        entries.push(serde_json::json!({
+            "session_id": session_id,
+            "agent": "cursor",
+            "cwd": serde_json::Value::Null,
+            "modified_at": file_modified_iso(&file.path),
+            "file_path": file.path.to_string_lossy().to_string(),
+        }));
+    }
+    Ok(entries)
 }
 
 fn codex_base_dir() -> PathBuf {
