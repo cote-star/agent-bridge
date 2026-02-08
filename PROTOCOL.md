@@ -1,4 +1,4 @@
-# Agent Bridge Protocol v0.4.0
+# Agent Bridge Protocol v0.4.1
 
 ## Purpose
 Define a lightweight, local-first standard for reading and coordinating cross-agent session evidence across Codex, Gemini, Claude, and Cursor.

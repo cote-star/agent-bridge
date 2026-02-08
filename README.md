@@ -2,7 +2,7 @@
 
 ![CI Status](https://github.com/cote-star/agent-bridge/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-0.4.0-green.svg)
+![Version](https://img.shields.io/badge/version-0.4.1-green.svg)
 
 **Agent Bridge** is a lightweight local protocol and reference implementation for reading cross-agent session context. It enables AI agents (Codex, Gemini, Claude, Cursor) to read each other's conversation history from local storage, facilitating coordination, verification, and steering without a centralized cloud service.
 
