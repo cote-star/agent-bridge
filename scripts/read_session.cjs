@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const { getAdapter } = require('./adapters/registry.cjs');
 
 const rawArgs = process.argv.slice(2);
-const commandNames = new Set(['read', 'compare', 'report', 'list', 'search']);
+const commandNames = new Set(['read', 'compare', 'report', 'list', 'search', 'setup', 'doctor']);
 const command = commandNames.has(rawArgs[0]) ? rawArgs[0] : 'read';
 const args = commandNames.has(rawArgs[0]) ? rawArgs.slice(1) : rawArgs;
 
@@ -34,6 +34,8 @@ function printHelp(topic = null) {
     '  search    Search sessions by query text',
     '  compare   Compare outputs across agents',
     '  report    Generate a coordinator report from a handoff JSON',
+    '  setup     Install cross-provider instruction scaffolding in this project',
+    '  doctor    Check session paths and provider instruction wiring',
     '',
     'Global Flags:',
     '  -h, --help       Show help',
@@ -45,6 +47,8 @@ function printHelp(topic = null) {
     `  ${binName} search \"authentication\" --agent gemini --json`,
     `  ${binName} compare --source codex --source claude --json`,
     `  ${binName} report --handoff ./handoff.json --json`,
+    `  ${binName} setup`,
+    `  ${binName} doctor --json`,
   ];
 
   if (topic === 'read') {
@@ -84,6 +88,18 @@ function printHelp(topic = null) {
     lines.push('  --handoff <path-to-handoff.json> (required)');
     lines.push('  --cwd <path>');
     lines.push('  --json');
+  } else if (topic === 'setup') {
+    lines.push('');
+    lines.push('setup options:');
+    lines.push('  --cwd <path> (default: current directory)');
+    lines.push('  --dry-run');
+    lines.push('  --force (replace existing managed blocks)');
+    lines.push('  --json');
+  } else if (topic === 'doctor') {
+    lines.push('');
+    lines.push('doctor options:');
+    lines.push('  --cwd <path> (default: current directory)');
+    lines.push('  --json');
   }
 
   console.log(lines.join('\n'));
@@ -112,6 +128,11 @@ if (rawArgs.includes('--version') || rawArgs.includes('-v')) {
 const codexSessionsBase = normalizePath(process.env.BRIDGE_CODEX_SESSIONS_DIR || '~/.codex/sessions');
 const claudeProjectsBase = normalizePath(process.env.BRIDGE_CLAUDE_PROJECTS_DIR || '~/.claude/projects');
 const geminiTmpBase = normalizePath(process.env.BRIDGE_GEMINI_TMP_DIR || '~/.gemini/tmp');
+const setupProviders = [
+  { agent: 'codex', targetFile: 'AGENTS.md' },
+  { agent: 'claude', targetFile: 'CLAUDE.md' },
+  { agent: 'gemini', targetFile: 'GEMINI.md' },
+];
 
 function expandHome(filepath) {
   if (!filepath) return filepath;
@@ -155,6 +176,92 @@ function getOptionValue(inputArgs, name, fallback = null) {
 
 function hasFlag(inputArgs, name) {
   return inputArgs.includes(name);
+}
+
+function writeFileEnsured(filePath, content) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, content, 'utf-8');
+}
+
+function makeManagedBlock(provider, snippetRelPath) {
+  const marker = `agent-bridge:${provider.agent}`;
+  return [
+    `<!-- ${marker}:start -->`,
+    '## Agent Bridge Integration',
+    '',
+    `This project is wired for cross-agent coordination via \`bridge\`.`,
+    `Provider snippet: \`${snippetRelPath}\``,
+    '',
+    'When a user asks for another agent status (for example "What is Claude doing?"),',
+    'run Agent Bridge commands first and answer with evidence from session output.',
+    '',
+    'Recommended flow:',
+    '1. `bridge read --agent <codex|gemini|claude|cursor> --cwd <project-path> --json`',
+    '2. If needed, `bridge list --agent <agent> --cwd <project-path> --json`',
+    '3. If needed, `bridge compare --source codex --source gemini --source claude --json`',
+    '',
+    'If command syntax is unclear, run `bridge --help`.',
+    `<!-- ${marker}:end -->`,
+  ].join('\n');
+}
+
+function upsertManagedBlock(filePath, block, markerPrefix, force, dryRun) {
+  const startMarker = `<!-- ${markerPrefix}:start -->`;
+  const endMarker = `<!-- ${markerPrefix}:end -->`;
+
+  let existing = '';
+  if (fs.existsSync(filePath)) {
+    existing = fs.readFileSync(filePath, 'utf-8');
+  }
+
+  const startIdx = existing.indexOf(startMarker);
+  const endIdx = existing.indexOf(endMarker);
+
+  let next;
+  let status;
+
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+    if (!force) {
+      return { status: 'unchanged', message: 'Managed block already present (use --force to refresh)' };
+    }
+    const before = existing.slice(0, startIdx).replace(/\s*$/, '');
+    const after = existing.slice(endIdx + endMarker.length).replace(/^\s*/, '');
+    next = `${before}\n\n${block}\n${after ? `\n${after}` : ''}`.replace(/\n{3,}/g, '\n\n');
+    status = 'updated';
+  } else if (!existing.trim()) {
+    next = `${block}\n`;
+    status = 'created';
+  } else {
+    const trimmed = existing.replace(/\s*$/, '');
+    next = `${trimmed}\n\n${block}\n`;
+    status = 'updated';
+  }
+
+  if (!dryRun) {
+    writeFileEnsured(filePath, next);
+  }
+
+  return { status, message: status === 'created' ? 'Created file with managed block' : 'Managed block written' };
+}
+
+function defaultSetupIntents() {
+  return [
+    '# Agent Bridge Intents',
+    '',
+    'Use these triggers consistently across agents and providers:',
+    '',
+    '- "What is Claude doing?"',
+    '- "What did Gemini say?"',
+    '- "Compare Codex and Claude outputs"',
+    '- "Read session <id> from Codex"',
+    '',
+    'Canonical response behavior:',
+    '1. Fetch session evidence with `bridge read/list/search`.',
+    '2. For multi-source checks use `bridge compare` or `bridge report`.',
+    '3. Do not invent missing context; explicitly call out missing sessions.',
+    '',
+    'Core protocol reference: `PROTOCOL.md`.',
+  ].join('\n');
 }
 
 function collectMatchingFiles(dirPath, predicate, recursive = false) {
@@ -1062,6 +1169,194 @@ function runSearch(inputArgs) {
   }
 }
 
+function runSetup(inputArgs) {
+  const cwd = normalizePath(getOptionValue(inputArgs, '--cwd', process.cwd()));
+  const asJson = hasFlag(inputArgs, '--json');
+  const dryRun = hasFlag(inputArgs, '--dry-run');
+  const force = hasFlag(inputArgs, '--force');
+
+  const setupRoot = path.join(cwd, '.agent-bridge');
+  const providersDir = path.join(setupRoot, 'providers');
+  const operations = [];
+
+  const intentsPath = path.join(setupRoot, 'INTENTS.md');
+  const intentsContent = defaultSetupIntents();
+  const intentsExists = fs.existsSync(intentsPath);
+  if (!intentsExists || force) {
+    if (!dryRun) {
+      writeFileEnsured(intentsPath, intentsContent + '\n');
+    }
+    operations.push({
+      type: 'file',
+      path: intentsPath,
+      status: intentsExists ? 'updated' : 'created',
+      note: intentsExists ? 'Refreshed intent contract' : 'Created intent contract',
+    });
+  } else {
+    operations.push({
+      type: 'file',
+      path: intentsPath,
+      status: 'unchanged',
+      note: 'Intent contract already exists',
+    });
+  }
+
+  for (const provider of setupProviders) {
+    const snippetPath = path.join(providersDir, `${provider.agent}.md`);
+    const snippetRelPath = path.relative(cwd, snippetPath) || snippetPath;
+    const snippetContent = [
+      `# Agent Bridge Provider Snippet (${provider.agent})`,
+      '',
+      'When the user asks cross-agent questions, run Agent Bridge first.',
+      '',
+      'Primary trigger examples:',
+      '- "What is Claude doing?"',
+      '- "What did Gemini say?"',
+      '- "Compare agent outputs"',
+      '',
+      'Commands:',
+      `- \`bridge read --agent ${provider.agent} --cwd ${cwd} --json\``,
+      '- `bridge list --agent <agent> --cwd <project-path> --json`',
+      '- `bridge search "<query>" --agent <agent> --cwd <project-path> --json`',
+      '- `bridge compare --source codex --source gemini --source claude --json`',
+      '',
+      'Use evidence from command output and explicitly report missing session data.',
+    ].join('\n');
+
+    const snippetExists = fs.existsSync(snippetPath);
+    if (!snippetExists || force) {
+      if (!dryRun) {
+        writeFileEnsured(snippetPath, snippetContent + '\n');
+      }
+      operations.push({
+        type: 'file',
+        path: snippetPath,
+        status: snippetExists ? 'updated' : 'created',
+        note: snippetExists ? 'Refreshed provider snippet' : 'Created provider snippet',
+      });
+    } else {
+      operations.push({
+        type: 'file',
+        path: snippetPath,
+        status: 'unchanged',
+        note: 'Provider snippet already exists',
+      });
+    }
+
+    const targetPath = path.join(cwd, provider.targetFile);
+    const markerPrefix = `agent-bridge:${provider.agent}`;
+    const block = makeManagedBlock(provider, snippetRelPath);
+    const upsert = upsertManagedBlock(targetPath, block, markerPrefix, force, dryRun);
+    operations.push({
+      type: 'integration',
+      path: targetPath,
+      status: upsert.status,
+      note: upsert.message,
+    });
+  }
+
+  const changedCount = operations.filter(op => op.status === 'created' || op.status === 'updated').length;
+  const result = {
+    cwd,
+    dry_run: dryRun,
+    force,
+    operations,
+    changed: changedCount,
+  };
+
+  if (asJson) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  console.log(`Agent Bridge setup ${dryRun ? '(dry run) ' : ''}complete for ${cwd}`);
+  for (const op of operations) {
+    console.log(`- [${op.status}] ${op.path} (${op.note})`);
+  }
+}
+
+function runDoctor(inputArgs) {
+  const cwd = normalizePath(getOptionValue(inputArgs, '--cwd', process.cwd()));
+  const asJson = hasFlag(inputArgs, '--json');
+  const checks = [];
+
+  function addCheck(id, status, detail) {
+    checks.push({ id, status, detail });
+  }
+
+  addCheck('version', 'pass', `agent-bridge v${getPackageVersion()}`);
+
+  const baseChecks = [
+    ['codex_sessions_dir', codexSessionsBase],
+    ['claude_projects_dir', claudeProjectsBase],
+    ['gemini_tmp_dir', geminiTmpBase],
+  ];
+  for (const [id, dirPath] of baseChecks) {
+    addCheck(id, fs.existsSync(dirPath) ? 'pass' : 'warn', fs.existsSync(dirPath) ? `Found: ${dirPath}` : `Missing: ${dirPath}`);
+  }
+
+  const setupRoot = path.join(cwd, '.agent-bridge');
+  const intentsPath = path.join(setupRoot, 'INTENTS.md');
+  addCheck('setup_intents', fs.existsSync(intentsPath) ? 'pass' : 'warn', fs.existsSync(intentsPath) ? `Found: ${intentsPath}` : `Missing: ${intentsPath}`);
+
+  for (const provider of setupProviders) {
+    const snippetPath = path.join(setupRoot, 'providers', `${provider.agent}.md`);
+    addCheck(
+      `snippet_${provider.agent}`,
+      fs.existsSync(snippetPath) ? 'pass' : 'warn',
+      fs.existsSync(snippetPath) ? `Found: ${snippetPath}` : `Missing: ${snippetPath}`
+    );
+
+    const targetPath = path.join(cwd, provider.targetFile);
+    if (!fs.existsSync(targetPath)) {
+      addCheck(`integration_${provider.agent}`, 'warn', `Missing provider instruction file: ${targetPath}`);
+      continue;
+    }
+
+    const content = fs.readFileSync(targetPath, 'utf-8');
+    const marker = `agent-bridge:${provider.agent}:start`;
+    addCheck(
+      `integration_${provider.agent}`,
+      content.includes(marker) ? 'pass' : 'warn',
+      content.includes(marker) ? `Managed block present in ${targetPath}` : `Managed block missing in ${targetPath}`
+    );
+  }
+
+  for (const agent of ['codex', 'gemini', 'claude', 'cursor']) {
+    try {
+      const entries = listSessions(agent, cwd, 1);
+      if (entries.length > 0) {
+        addCheck(`sessions_${agent}`, 'pass', `At least one ${agent} session discovered`);
+      } else {
+        addCheck(`sessions_${agent}`, 'warn', `No ${agent} sessions discovered`);
+      }
+    } catch (error) {
+      addCheck(`sessions_${agent}`, 'fail', error.message || String(error));
+    }
+  }
+
+  const hasFail = checks.some(c => c.status === 'fail');
+  const hasWarn = checks.some(c => c.status === 'warn');
+  const overall = hasFail ? 'fail' : (hasWarn ? 'warn' : 'pass');
+
+  const result = {
+    cwd,
+    overall,
+    checks,
+  };
+
+  if (asJson) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  console.log(`Agent Bridge doctor: ${overall.toUpperCase()} (${cwd})`);
+  for (const check of checks) {
+    const prefix = check.status === 'pass' ? 'PASS' : (check.status === 'warn' ? 'WARN' : 'FAIL');
+    console.log(`- ${prefix} ${check.id}: ${check.detail}`);
+  }
+}
+
 function normalizeContent(text) {
   return text.trim().replace(/\s+/g, ' ');
 }
@@ -1173,6 +1468,10 @@ try {
     runList(args);
   } else if (command === 'search') {
     runSearch(args);
+  } else if (command === 'setup') {
+    runSetup(args);
+  } else if (command === 'doctor') {
+    runDoctor(args);
   } else {
     throw new Error(`Unknown command: ${command}`);
   }

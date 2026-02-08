@@ -34,8 +34,5 @@
     "check:package": "bash scripts/check_package_contents.sh",
     "validate:schemas": "bash scripts/validate_schemas.sh",
     "check": "npm run conformance && npm run check:readme && npm run check:package && npm run validate:schemas"
-  },
-  "dependencies": {
-    "agent-bridge": "^0.4.0"
   }
 }

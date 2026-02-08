@@ -103,6 +103,49 @@ bridge --help
 bridge-node --version
 ```
 
+For consistent cross-provider behavior in a project, run:
+
+```bash
+bridge setup
+bridge doctor
+```
+
+### Skill-Based Usage (Natural Language Triggers)
+
+`agent-bridge` is not only command-driven. It also supports a skill-style workflow so agents can respond to prompts like:
+
+- "What is Claude doing?"
+- "What did Gemini say?"
+- "Compare Codex and Claude outputs."
+
+Run setup once per project:
+
+```bash
+bridge setup
+```
+
+This creates:
+
+- `.agent-bridge/INTENTS.md` (shared trigger contract)
+- `.agent-bridge/providers/codex.md`
+- `.agent-bridge/providers/claude.md`
+- `.agent-bridge/providers/gemini.md`
+- Managed integration blocks in `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`
+
+Verify wiring and session visibility:
+
+```bash
+bridge doctor
+bridge doctor --json
+```
+
+After setup, the recommended behavior for all providers is:
+
+1. Resolve user intent (cross-agent status, compare, verification).
+2. Fetch evidence with `bridge read/list/search`.
+3. Use `bridge compare` or `bridge report` when multiple sources are involved.
+4. Report missing sessions explicitly rather than guessing.
+
 ### Protocol-Accurate Command Contract
 
 ```bash
@@ -111,6 +154,8 @@ bridge compare --source <agent[:session-substring]>... [--cwd=<path>] [--normali
 bridge report --handoff <handoff.json> [--cwd=<path>] [--json]
 bridge list --agent <codex|gemini|claude|cursor> [--cwd=<path>] [--limit=<N>] [--json]
 bridge search <query> --agent <codex|gemini|claude|cursor> [--cwd=<path>] [--limit=<N>] [--json]
+bridge setup [--cwd=<path>] [--dry-run] [--force] [--json]
+bridge doctor [--cwd=<path>] [--json]
 ```
 
 ### Reading a Session
@@ -266,6 +311,7 @@ Redaction is applied to `api_key`, `apikey`, `token`, `secret`, and `password` a
 ## Development
 
 - **Protocol**: See [`PROTOCOL.md`](https://github.com/cote-star/agent-bridge/blob/main/PROTOCOL.md) for the CLI and JSON specification.
+- **Skill**: See [`SKILL.md`](https://github.com/cote-star/agent-bridge/blob/main/SKILL.md) for cross-agent trigger behavior and evidence workflow.
 - **Contributing**: See [`CONTRIBUTING.md`](https://github.com/cote-star/agent-bridge/blob/main/CONTRIBUTING.md) for setup, tests, and PR expectations.
 
 ### Project Structure
