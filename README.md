@@ -66,7 +66,8 @@ Install the CLI tool globally to use it from your terminal.
 
 ```bash
 npm install -g agent-bridge
-bridge-node read --agent=codex --json
+bridge read --agent=codex --json
+# also available: bridge-node
 ```
 
 **Rust (Recommended for Performance)**:
@@ -95,7 +96,12 @@ cargo run --manifest-path cli/Cargo.toml -- read --agent codex
 
 ## Usage
 
-> **Note**: The examples below use the `bridge` command. If you installed via Node.js (`npm`), the binary is named `bridge-node`. You can either alias it (`alias bridge=bridge-node`) or substitute `bridge-node` in the commands.
+The npm package installs both `bridge` and `bridge-node` commands.
+
+```bash
+bridge --help
+bridge-node --version
+```
 
 ### Protocol-Accurate Command Contract
 
