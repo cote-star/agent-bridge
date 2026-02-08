@@ -9,3 +9,7 @@ node_modules/
 
 # Editor
 .vscode/
+
+# Demo recording (only docs/demo.webp is committed)
+fixtures/demo/
+scripts/record_demo.*
