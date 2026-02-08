@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inter-agent-bridge.dev/schemas/handoff.schema.json",
+  "title": "Coordinator Handoff Packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["mode", "task", "success_criteria", "sources"],
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": ["verify", "steer", "analyze", "feedback"]
+    },
+    "task": {
+      "type": "string",
+      "minLength": 1
+    },
+    "success_criteria": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["agent"],
+        "properties": {
+          "agent": {
+            "type": "string",
+            "enum": ["codex", "gemini", "claude"]
+          },
+          "session_id": { "type": ["string", "null"] },
+          "current_session": { "type": "boolean" },
+          "cwd": { "type": "string" }
+        }
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

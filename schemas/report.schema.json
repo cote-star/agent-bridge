@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inter-agent-bridge.dev/schemas/report.schema.json",
+  "title": "Coordinator Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["mode", "task", "sources_used", "verdict", "findings", "recommended_next_actions"],
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": ["verify", "steer", "analyze", "feedback"]
+    },
+    "task": {
+      "type": "string"
+    },
+    "success_criteria": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "sources_used": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "verdict": {
+      "type": "string"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "summary", "evidence", "confidence"],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["P0", "P1", "P2", "P3"]
+          },
+          "summary": { "type": "string" },
+          "evidence": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "recommended_next_actions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "open_questions": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

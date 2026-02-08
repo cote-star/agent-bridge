@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inter-agent-bridge.dev/schemas/read-output.schema.json",
+  "title": "Bridge Read Output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["agent", "source", "content", "warnings"],
+  "properties": {
+    "agent": {
+      "type": "string",
+      "enum": ["codex", "gemini", "claude"]
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "content": {
+      "type": "string"
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}
