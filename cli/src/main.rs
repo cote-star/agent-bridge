@@ -119,6 +119,14 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// Roast agents based on their session content (easter egg)
+    #[command(name = "trash-talk")]
+    TrashTalk {
+        /// Working directory to scope search
+        #[arg(long)]
+        cwd: Option<String>,
+    },
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
@@ -191,6 +199,7 @@ fn is_json_mode(command: &Commands) -> bool {
         Commands::Report { json, .. } => *json,
         Commands::List { json, .. } => *json,
         Commands::Search { json, .. } => *json,
+        Commands::TrashTalk { .. } => false,
     }
 }
 
@@ -301,6 +310,10 @@ fn run(cli: Cli) -> Result<()> {
                     println!("{}", serde_json::to_string(entry).unwrap_or_default());
                 }
             }
+        }
+        Commands::TrashTalk { cwd } => {
+            let effective = effective_cwd(cwd);
+            agents::trash_talk(&effective);
         }
     }
 

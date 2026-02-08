@@ -1435,6 +1435,171 @@ fn gemini_tmp_base_dir() -> PathBuf {
         .unwrap_or_else(|| expand_home("~/.gemini/tmp").unwrap_or_else(|| PathBuf::from("~/.gemini/tmp")))
 }
 
+// --- Trash Talk ---
+
+struct ActiveAgent {
+    agent: &'static str,
+    content: String,
+    message_count: usize,
+    session_id: String,
+}
+
+fn simple_hash(s: &str) -> usize {
+    let mut hash: i32 = 0;
+    for byte in s.bytes() {
+        hash = hash.wrapping_shl(5).wrapping_sub(hash).wrapping_add(byte as i32);
+    }
+    hash.unsigned_abs() as usize
+}
+
+fn pick_roast(agent: &str, content: &str, message_count: usize) -> &'static str {
+    const SHORT_ROASTS: &[&str] = &[
+        "That's it? My .gitignore has more content.",
+        "Blink and you'd miss that entire session.",
+    ];
+    const LONG_ROASTS: &[&str] = &[
+        "Wrote a novel, did we? Too bad nobody asked for War and Peace.",
+        "That session has more words than my last performance review.",
+    ];
+    const TEST_ROASTS: &[&str] = &[
+        "Oh look, someone actually writes tests. Show-off.",
+        "Testing? In this economy?",
+    ];
+    const TODO_ROASTS: &[&str] = &[
+        "Still leaving TODOs? That's a cry for help.",
+        "TODO: learn to finish things.",
+    ];
+    const BUG_ROASTS: &[&str] = &[
+        "Breaking things again? Classic.",
+        "Found a bug? Or just made one?",
+    ];
+    const CODEX_ROASTS: &[&str] = &[
+        "OpenAI's kid showing up to do chores. How responsible.",
+        "Codex: because copy-paste needed a rebrand.",
+    ];
+    const CLAUDE_ROASTS: &[&str] = &[
+        "Claude overthinking again? Shocking. Truly shocking.",
+        "Too polite to say no, too verbose to say yes.",
+    ];
+    const GEMINI_ROASTS: &[&str] = &[
+        "Did Gemini Google the answer? Old habits die hard.",
+        "Gemini: when one model isn't enough, use two and confuse both.",
+    ];
+    const CURSOR_ROASTS: &[&str] = &[
+        "An IDE that thinks it's an agent. Bless its heart.",
+        "Cursor: autocomplete with delusions of grandeur.",
+    ];
+    const GENERIC_ROASTS: &[&str] = &[
+        "Participation trophy earned.",
+        "Well, at least the process exited cleanly.",
+        "Not the worst I've seen. That's not a compliment.",
+    ];
+
+    let mut roasts: Vec<&str> = Vec::new();
+    if message_count < 5 { roasts.extend_from_slice(SHORT_ROASTS); }
+    if message_count > 30 { roasts.extend_from_slice(LONG_ROASTS); }
+
+    let lower = content.to_ascii_lowercase();
+    if lower.contains("test") || lower.contains("spec") || lower.contains("assert") {
+        roasts.extend_from_slice(TEST_ROASTS);
+    }
+    if lower.contains("todo") || lower.contains("fixme") || lower.contains("hack") {
+        roasts.extend_from_slice(TODO_ROASTS);
+    }
+    if lower.contains("error") || lower.contains("bug") || lower.contains("fix") {
+        roasts.extend_from_slice(BUG_ROASTS);
+    }
+
+    match agent {
+        "codex" => roasts.extend_from_slice(CODEX_ROASTS),
+        "claude" => roasts.extend_from_slice(CLAUDE_ROASTS),
+        "gemini" => roasts.extend_from_slice(GEMINI_ROASTS),
+        "cursor" => roasts.extend_from_slice(CURSOR_ROASTS),
+        _ => {}
+    }
+    roasts.extend_from_slice(GENERIC_ROASTS);
+
+    roasts[simple_hash(content) % roasts.len()]
+}
+
+fn capitalize(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(c) => c.to_uppercase().to_string() + chars.as_str(),
+    }
+}
+
+pub fn trash_talk(cwd: &str) {
+    let agents = ["codex", "gemini", "claude", "cursor"];
+    let mut active: Vec<ActiveAgent> = Vec::new();
+
+    for agent_name in &agents {
+        let adapter = match crate::adapters::get_adapter(agent_name) {
+            Some(a) => a,
+            None => continue,
+        };
+        let entries = match adapter.list_sessions(Some(cwd), 1) {
+            Ok(e) if !e.is_empty() => e,
+            _ => continue,
+        };
+        let session = match adapter.read_session(None, cwd, None, 1) {
+            Ok(s) => s,
+            Err(_) => continue,
+        };
+        let _ = entries; // used only to check presence
+        active.push(ActiveAgent {
+            agent: match *agent_name {
+                "codex" => "codex",
+                "gemini" => "gemini",
+                "claude" => "claude",
+                "cursor" => "cursor",
+                _ => "unknown",
+            },
+            content: session.content,
+            message_count: session.message_count,
+            session_id: session.session_id.unwrap_or_else(|| "unknown".to_string()),
+        });
+    }
+
+    println!("\u{1f5d1}\u{fe0f}  TRASH TALK\n");
+
+    if active.is_empty() {
+        println!("No agents to trash-talk. It's lonely in here.");
+        println!("Try running some agents first \u{2014} I need material.");
+        return;
+    }
+
+    if active.len() == 1 {
+        let a = &active[0];
+        let roast = pick_roast(a.agent, &a.content, a.message_count);
+        println!("Target: {} ({}, {} messages)\n", capitalize(a.agent), a.session_id, a.message_count);
+        println!("\"{}\"\n", roast);
+        println!("Verdict: {} is trying. Bless.", capitalize(a.agent));
+        return;
+    }
+
+    // Battle mode
+    active.sort_by(|a, b| b.message_count.cmp(&a.message_count));
+
+    println!("\u{1f4ca} Activity Report:");
+    for a in &active {
+        println!("  {:<8} {:>3} messages  ({})", capitalize(a.agent), a.message_count, a.session_id);
+    }
+    println!();
+
+    println!("\u{1f3c6} Winner: {} (by volume \u{2014} congrats on typing the most)", capitalize(active[0].agent));
+    println!("\"Quantity over quality, but at least you showed up.\"\n");
+
+    for a in &active[1..] {
+        let roast = pick_roast(a.agent, &a.content, a.message_count);
+        println!("\u{1f480} {} ({} messages):", capitalize(a.agent), a.message_count);
+        println!("\"{}\"\n", roast);
+    }
+
+    println!("Verdict: They're all trying their best. It's just not very good.");
+}
+
 #[cfg(test)]
 mod tests {
     use super::redact_sensitive_text;

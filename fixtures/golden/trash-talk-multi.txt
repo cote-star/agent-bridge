@@ -1,0 +1,13 @@
+🗑️  TRASH TALK
+
+📊 Activity Report:
+  Codex      1 messages  (session-codex-malformed)
+  Claude     0 messages  (session-claude-no-assistant)
+
+🏆 Winner: Codex (by volume — congrats on typing the most)
+"Quantity over quality, but at least you showed up."
+
+💀 Claude (0 messages):
+"Well, at least the process exited cleanly."
+
+Verdict: They're all trying their best. It's just not very good.

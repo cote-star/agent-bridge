@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const { getAdapter } = require('./adapters/registry.cjs');
 
 const rawArgs = process.argv.slice(2);
-const commandNames = new Set(['read', 'compare', 'report', 'list', 'search', 'setup', 'doctor']);
+const commandNames = new Set(['read', 'compare', 'report', 'list', 'search', 'setup', 'doctor', 'trash-talk']);
 const command = commandNames.has(rawArgs[0]) ? rawArgs[0] : 'read';
 const args = commandNames.has(rawArgs[0]) ? rawArgs.slice(1) : rawArgs;
 
@@ -55,7 +55,7 @@ function printHelp(topic = null) {
     lines.push('');
     lines.push('read options:');
     lines.push('  --agent <codex|gemini|claude|cursor> (default: codex)');
-    lines.push('  --id <session-substring>');
+    lines.push('  --id <session-substring> (optional; omitted = latest session in scope)');
     lines.push('  --cwd <path>');
     lines.push('  --chats-dir <path> (gemini)');
     lines.push('  --last <N>');
@@ -195,10 +195,17 @@ function makeManagedBlock(provider, snippetRelPath) {
     'When a user asks for another agent status (for example "What is Claude doing?"),',
     'run Agent Bridge commands first and answer with evidence from session output.',
     '',
-    'Recommended flow:',
-    '1. `bridge read --agent <codex|gemini|claude|cursor> --cwd <project-path> --json`',
-    '2. If needed, `bridge list --agent <agent> --cwd <project-path> --json`',
-    '3. If needed, `bridge compare --source codex --source gemini --source claude --json`',
+    'Session routing and defaults:',
+    '1. Start with `bridge read --agent <target-agent> --cwd <project-path> --json` (omit `--id` for latest).',
+    '2. "past session" means previous session: list 2 and read the second session ID.',
+    '3. "past N sessions" means exclude latest: list N+1 and read the older N session IDs.',
+    '4. "last N sessions" means include latest: list N and read/summarize those sessions.',
+    '5. Ask for a session ID only after an initial read/list attempt fails or when exact ID is requested.',
+    '',
+    'Support commands:',
+    '- `bridge list --agent <agent> --cwd <project-path> --json`',
+    '- `bridge search "<query>" --agent <agent> --cwd <project-path> --json`',
+    '- `bridge compare --source codex --source gemini --source claude --cwd <project-path> --json`',
     '',
     'If command syntax is unclear, run `bridge --help`.',
     `<!-- ${marker}:end -->`,
@@ -256,9 +263,12 @@ function defaultSetupIntents() {
     '- "Read session <id> from Codex"',
     '',
     'Canonical response behavior:',
-    '1. Fetch session evidence with `bridge read/list/search`.',
-    '2. For multi-source checks use `bridge compare` or `bridge report`.',
-    '3. Do not invent missing context; explicitly call out missing sessions.',
+    '1. Default to latest session in current project (`--cwd`) when no session is specified.',
+    '2. "past session" means previous session; "past N sessions" excludes latest; "last N sessions" includes latest.',
+    '3. Fetch evidence with `bridge read` first, then `bridge list/search` only if needed.',
+    '4. For multi-source checks use `bridge compare` or `bridge report`.',
+    '5. Do not ask for session ID before first fetch unless user requested exact ID.',
+    '6. Do not invent missing context; explicitly call out missing sessions.',
     '',
     'Core protocol reference: `PROTOCOL.md`.',
   ].join('\n');
@@ -1213,12 +1223,25 @@ function runSetup(inputArgs) {
       '- "What is Claude doing?"',
       '- "What did Gemini say?"',
       '- "Compare agent outputs"',
+      '- "Show the past 3 sessions from Claude"',
+      '',
+      'Intent router:',
+      '- "What is Claude doing?" -> `bridge read --agent claude --cwd <project-path> --json`',
+      '- "What did Gemini say?" -> `bridge read --agent gemini --cwd <project-path> --json`',
+      '- "Compare Codex and Claude outputs" -> `bridge compare --source codex --source claude --cwd <project-path> --json`',
+      '',
+      'Session timing defaults:',
+      '- No session ID means latest session in scope.',
+      '- "past session" means previous session (exclude latest).',
+      '- "past N sessions" means list N+1 and use older N sessions.',
+      '- "last N sessions" means list N and include latest session.',
+      '- Ask for session ID only after first fetch fails or exact ID is requested.',
       '',
       'Commands:',
-      `- \`bridge read --agent ${provider.agent} --cwd ${cwd} --json\``,
+      '- `bridge read --agent <target-agent> --cwd <project-path> --json`',
       '- `bridge list --agent <agent> --cwd <project-path> --json`',
       '- `bridge search "<query>" --agent <agent> --cwd <project-path> --json`',
-      '- `bridge compare --source codex --source gemini --source claude --json`',
+      '- `bridge compare --source codex --source gemini --source claude --cwd <project-path> --json`',
       '',
       'Use evidence from command output and explicitly report missing session data.',
     ].join('\n');
@@ -1361,6 +1384,142 @@ function normalizeContent(text) {
   return text.trim().replace(/\s+/g, ' ');
 }
 
+function simpleHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+function pickRoast(agent, content, messageCount) {
+  const SHORT_ROASTS = [
+    "That's it? My .gitignore has more content.",
+    "Blink and you'd miss that entire session.",
+  ];
+  const LONG_ROASTS = [
+    "Wrote a novel, did we? Too bad nobody asked for War and Peace.",
+    "That session has more words than my last performance review.",
+  ];
+  const TEST_ROASTS = [
+    "Oh look, someone actually writes tests. Show-off.",
+    "Testing? In this economy?",
+  ];
+  const TODO_ROASTS = [
+    "Still leaving TODOs? That's a cry for help.",
+    "TODO: learn to finish things.",
+  ];
+  const BUG_ROASTS = [
+    "Breaking things again? Classic.",
+    "Found a bug? Or just made one?",
+  ];
+  const AGENT_ROASTS = {
+    codex: [
+      "OpenAI's kid showing up to do chores. How responsible.",
+      "Codex: because copy-paste needed a rebrand.",
+    ],
+    claude: [
+      "Claude overthinking again? Shocking. Truly shocking.",
+      "Too polite to say no, too verbose to say yes.",
+    ],
+    gemini: [
+      "Did Gemini Google the answer? Old habits die hard.",
+      "Gemini: when one model isn't enough, use two and confuse both.",
+    ],
+    cursor: [
+      "An IDE that thinks it's an agent. Bless its heart.",
+      "Cursor: autocomplete with delusions of grandeur.",
+    ],
+  };
+  const GENERIC_ROASTS = [
+    "Participation trophy earned.",
+    "Well, at least the process exited cleanly.",
+    "Not the worst I've seen. That's not a compliment.",
+  ];
+
+  const roasts = [];
+  if (messageCount < 5) roasts.push(...SHORT_ROASTS);
+  if (messageCount > 30) roasts.push(...LONG_ROASTS);
+  if (/test|spec|assert/i.test(content)) roasts.push(...TEST_ROASTS);
+  if (/todo|fixme|hack/i.test(content)) roasts.push(...TODO_ROASTS);
+  if (/error|bug|fix/i.test(content)) roasts.push(...BUG_ROASTS);
+  roasts.push(...(AGENT_ROASTS[agent] || []));
+  roasts.push(...GENERIC_ROASTS);
+
+  return roasts[simpleHash(content) % roasts.length];
+}
+
+function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function runTrashTalk(inputArgs) {
+  const rawCwd = getOptionValue(inputArgs, '--cwd', null);
+  const cwd = rawCwd ? normalizePath(rawCwd) : normalizePath(process.cwd());
+  const agents = ['codex', 'gemini', 'claude', 'cursor'];
+  const active = [];
+
+  for (const agent of agents) {
+    try {
+      const adapter = getAdapter(agent);
+      const entries = adapter.list(cwd, 1);
+      if (entries.length > 0) {
+        try {
+          const resolved = adapter.resolve(null, cwd, { chatsDir: null });
+          if (resolved && resolved.path) {
+            const session = adapter.read(resolved.path, 1);
+            active.push({
+              agent,
+              content: session.content || '',
+              messageCount: session.message_count || 0,
+              sessionId: session.session_id || 'unknown',
+            });
+          }
+        } catch (_e) { /* skip unreadable */ }
+      }
+    } catch (_e) { /* skip unavailable */ }
+  }
+
+  console.log('\u{1F5D1}\uFE0F  TRASH TALK\n');
+
+  if (active.length === 0) {
+    console.log('No agents to trash-talk. It\'s lonely in here.');
+    console.log('Try running some agents first \u2014 I need material.');
+    return;
+  }
+
+  if (active.length === 1) {
+    const a = active[0];
+    const roast = pickRoast(a.agent, a.content, a.messageCount);
+    console.log(`Target: ${capitalize(a.agent)} (${a.sessionId}, ${a.messageCount} messages)\n`);
+    console.log(`"${roast}"\n`);
+    console.log(`Verdict: ${capitalize(a.agent)} is trying. Bless.`);
+    return;
+  }
+
+  // Battle mode
+  active.sort((a, b) => b.messageCount - a.messageCount);
+  const winner = active[0];
+
+  console.log('\u{1F4CA} Activity Report:');
+  for (const a of active) {
+    const label = capitalize(a.agent).padEnd(8);
+    console.log(`  ${label} ${String(a.messageCount).padStart(3)} messages  (${a.sessionId})`);
+  }
+  console.log('');
+
+  console.log(`\u{1F3C6} Winner: ${capitalize(winner.agent)} (by volume \u2014 congrats on typing the most)`);
+  console.log('"Quantity over quality, but at least you showed up."\n');
+
+  for (const a of active.slice(1)) {
+    const roast = pickRoast(a.agent, a.content, a.messageCount);
+    console.log(`\u{1F480} ${capitalize(a.agent)} (${a.messageCount} messages):`);
+    console.log(`"${roast}"\n`);
+  }
+
+  console.log('Verdict: They\'re all trying their best. It\'s just not very good.');
+}
+
 function runCompare(inputArgs) {
   const sourcesRaw = getOptionValues(inputArgs, '--source');
   if (sourcesRaw.length === 0) {
@@ -1472,6 +1631,8 @@ try {
     runSetup(args);
   } else if (command === 'doctor') {
     runDoctor(args);
+  } else if (command === 'trash-talk') {
+    runTrashTalk(args);
   } else {
     throw new Error(`Unknown command: ${command}`);
   }

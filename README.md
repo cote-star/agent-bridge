@@ -73,6 +73,16 @@ Tell any agent:
 
 The agent runs bridge commands behind the scenes and gives you an evidence-backed answer.
 
+### Session Selection Defaults
+
+After `bridge setup`, provider instructions follow this behavior:
+
+- If no session is specified, read the latest session in the current project.
+- "past session" / "previous session" means one session before latest.
+- "last N sessions" includes latest.
+- "past N sessions" excludes latest (older N sessions).
+- Ask for a session ID only if initial fetch fails or exact ID is explicitly requested.
+
 ## Supported Agents
 
 | Feature            | Codex | Gemini | Claude | Cursor |
@@ -132,6 +142,10 @@ bridge read --agent codex
 
 # Read from Claude, scoped to current working directory
 bridge read --agent claude --cwd /path/to/project
+
+# Read the previous (past) Claude session
+bridge list --agent claude --cwd /path/to/project --limit 2 --json
+bridge read --agent claude --id "<second-session-id>" --cwd /path/to/project
 
 # Read the last 5 assistant messages from a session
 bridge read --agent codex --id "fix-bug" --last 5
@@ -342,8 +356,13 @@ npm install --save-dev puppeteer
 node scripts/record_demo.js --input fixtures/demo/player-status.html --output docs/demo-status.webp --duration-ms 22000
 node scripts/record_demo.js --input fixtures/demo/player-handoff.html --output docs/demo-handoff.webp --duration-ms 20000
 node scripts/record_demo.js --input fixtures/demo/player-setup.html --output docs/demo-setup.webp --duration-ms 15000
+node scripts/record_demo.js --input fixtures/demo/player-trash-talk.html --output docs/demo-trash-talk.webp --duration-ms 15000
 npm uninstall puppeteer
 ```
+
+### Easter Egg
+
+`bridge trash-talk` roasts your agents based on their session content. Try it.
 
 ### Adding a New Agent
 
