@@ -1,6 +1,20 @@
 {
   "name": "agent-bridge",
   "version": "0.4.2",
+  "description": "Local-first CLI to read, compare, and hand off context across Codex, Claude, Gemini, and Cursor sessions.",
+  "keywords": [
+    "agent-bridge",
+    "ai-agents",
+    "codex",
+    "claude",
+    "gemini",
+    "cursor",
+    "cli",
+    "session",
+    "handoff",
+    "cross-agent",
+    "local-first"
+  ],
   "private": false,
   "type": "commonjs",
   "license": "MIT",

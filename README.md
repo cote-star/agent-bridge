@@ -8,6 +8,10 @@
 
 Ask one agent what another is doing — and get an evidence-backed answer. No copy-pasting, no tab-switching, no guessing.
 
+```bash
+bridge read --agent claude --json
+```
+
 ## How It Works
 
 1. **Ask naturally** — "What is Claude doing?" / "Did Gemini finish the API?"
