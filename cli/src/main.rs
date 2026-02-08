@@ -34,6 +34,10 @@ enum Commands {
         #[arg(long)]
         chats_dir: Option<String>,
 
+        /// Number of last assistant messages to return
+        #[arg(long, default_value = "1")]
+        last: usize,
+
         /// Emit structured JSON instead of text
         #[arg(long)]
         json: bool,
@@ -48,6 +52,10 @@ enum Commands {
         /// Working directory to scope current-session lookups
         #[arg(long)]
         cwd: Option<String>,
+
+        /// Apply whitespace normalization before comparing
+        #[arg(long)]
+        normalize: bool,
 
         /// Emit structured JSON instead of markdown
         #[arg(long)]
@@ -68,6 +76,25 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// List sessions for an agent
+    List {
+        /// Agent to list sessions for
+        #[arg(long, value_enum)]
+        agent: AgentType,
+
+        /// Working directory to scope search
+        #[arg(long)]
+        cwd: Option<String>,
+
+        /// Maximum number of sessions to return
+        #[arg(long, default_value = "10")]
+        limit: usize,
+
+        /// Emit structured JSON instead of text
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
@@ -75,26 +102,57 @@ enum AgentType {
     Codex,
     Gemini,
     Claude,
+    Cursor,
 }
 
-fn main() -> Result<()> {
+fn main() {
     let cli = Cli::parse();
+    let json_mode = is_json_mode(&cli.command);
 
+    if let Err(err) = run(cli) {
+        if json_mode {
+            let msg = format!("{:#}", err);
+            let code = agents::classify_error(&msg);
+            let error_json = serde_json::json!({
+                "error_code": code.as_str(),
+                "message": msg,
+            });
+            println!("{}", serde_json::to_string_pretty(&error_json).unwrap_or_default());
+        } else {
+            eprintln!("{:#}", err);
+        }
+        std::process::exit(1);
+    }
+}
+
+fn is_json_mode(command: &Commands) -> bool {
+    match command {
+        Commands::Read { json, .. } => *json,
+        Commands::Compare { json, .. } => *json,
+        Commands::Report { json, .. } => *json,
+        Commands::List { json, .. } => *json,
+    }
+}
+
+fn run(cli: Cli) -> Result<()> {
     match cli.command {
         Commands::Read {
             agent,
             id,
             cwd,
             chats_dir,
+            last,
             json,
         } => {
             let effective_cwd = effective_cwd(cwd);
+            let last_n = last.max(1);
             let session = match agent {
-                AgentType::Codex => agents::read_codex_session(id.as_deref(), &effective_cwd)?,
+                AgentType::Codex => agents::read_codex_session_with_last(id.as_deref(), &effective_cwd, last_n)?,
                 AgentType::Gemini => {
-                    agents::read_gemini_session(id.as_deref(), &effective_cwd, chats_dir.as_deref())?
+                    agents::read_gemini_session_with_last(id.as_deref(), &effective_cwd, chats_dir.as_deref(), last_n)?
                 }
-                AgentType::Claude => agents::read_claude_session(id.as_deref(), &effective_cwd)?,
+                AgentType::Claude => agents::read_claude_session_with_last(id.as_deref(), &effective_cwd, last_n)?,
+                AgentType::Cursor => agents::read_cursor_session(id.as_deref(), &effective_cwd)?,
             };
 
             if json {
@@ -103,6 +161,11 @@ fn main() -> Result<()> {
                     "source": session.source,
                     "content": session.content,
                     "warnings": session.warnings,
+                    "session_id": session.session_id,
+                    "cwd": session.cwd,
+                    "timestamp": session.timestamp,
+                    "message_count": session.message_count,
+                    "messages_returned": session.messages_returned,
                 });
                 println!("{}", serde_json::to_string_pretty(&report)?);
             } else {
@@ -114,7 +177,7 @@ fn main() -> Result<()> {
                 println!("{}", session.content);
             }
         }
-        Commands::Compare { sources, cwd, json } => {
+        Commands::Compare { sources, cwd, normalize, json } => {
             let effective_cwd = effective_cwd(cwd);
             let source_specs = sources
                 .iter()
@@ -130,6 +193,7 @@ fn main() -> Result<()> {
                 ],
                 sources: source_specs,
                 constraints: Vec::new(),
+                normalize,
             };
 
             let result = report::build_report(&request, &effective_cwd);
@@ -141,6 +205,23 @@ fn main() -> Result<()> {
                 .with_context(|| format!("Failed to load handoff packet from {}", handoff))?;
             let result = report::build_report(&request, &effective_cwd);
             emit_report_output(&result, json)?;
+        }
+        Commands::List { agent, cwd, limit, json } => {
+            let effective_cwd = effective_cwd(cwd);
+            let entries = match agent {
+                AgentType::Codex => agents::list_codex_sessions(&effective_cwd, limit)?,
+                AgentType::Gemini => agents::list_gemini_sessions(&effective_cwd, limit)?,
+                AgentType::Claude => agents::list_claude_sessions(&effective_cwd, limit)?,
+                AgentType::Cursor => agents::list_cursor_sessions(&effective_cwd, limit)?,
+            };
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&entries)?);
+            } else {
+                for entry in &entries {
+                    println!("{}", serde_json::to_string(entry).unwrap_or_default());
+                }
+            }
         }
     }
 
@@ -169,6 +250,7 @@ fn format_agent_name(agent: &str) -> &'static str {
         "codex" => "Codex",
         "gemini" => "Gemini",
         "claude" => "Claude",
+        "cursor" => "Cursor",
         _ => "Unknown",
     }
 }

@@ -6,7 +6,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const rawArgs = process.argv.slice(2);
-const commandNames = new Set(['read', 'compare', 'report']);
+const commandNames = new Set(['read', 'compare', 'report', 'list']);
 const command = commandNames.has(rawArgs[0]) ? rawArgs[0] : 'read';
 const args = commandNames.has(rawArgs[0]) ? rawArgs.slice(1) : rawArgs;
 
@@ -295,7 +295,28 @@ function redactSensitiveText(input) {
   return output;
 }
 
-function readCodexSession(id, cwd) {
+function classifyError(message) {
+  if (/unsupported agent/i.test(message)) return 'UNSUPPORTED_AGENT';
+  if (/unsupported mode/i.test(message)) return 'UNSUPPORTED_MODE';
+  if (/no .* session found/i.test(message)) return 'NOT_FOUND';
+  if (/not found/i.test(message)) return 'NOT_FOUND';
+  if (/failed to parse/i.test(message) || /failed to read/i.test(message)) return 'PARSE_FAILED';
+  if (/missing required/i.test(message) || /invalid handoff/i.test(message) || /must provide session_id/i.test(message)) return 'INVALID_HANDOFF';
+  if (/has no messages/i.test(message) || /history is empty/i.test(message)) return 'EMPTY_SESSION';
+  return 'IO_ERROR';
+}
+
+function getFileTimestamp(filePath) {
+  try {
+    const stat = fs.statSync(filePath);
+    return stat.mtime.toISOString();
+  } catch (error) {
+    return null;
+  }
+}
+
+function readCodexSession(id, cwd, lastN) {
+  lastN = lastN || 1;
   const warnings = [];
   const targetFile = resolveCodexTargetFile(id, cwd, warnings);
   if (!targetFile) {
@@ -305,10 +326,16 @@ function readCodexSession(id, cwd) {
   const lines = readJsonlLines(targetFile);
   const messages = [];
   let skipped = 0;
+  let sessionCwd = null;
+  let sessionId = null;
 
   for (const line of lines) {
     try {
       const json = JSON.parse(line);
+      if (json.type === 'session_meta' && json.payload) {
+        if (typeof json.payload.cwd === 'string') sessionCwd = json.payload.cwd;
+        if (typeof json.payload.session_id === 'string') sessionId = json.payload.session_id;
+      }
       if (json.type === 'response_item' && json.payload && json.payload.type === 'message') {
         messages.push(json.payload);
       } else if (json.type === 'event_msg' && json.payload && json.payload.type === 'agent_message') {
@@ -323,24 +350,43 @@ function readCodexSession(id, cwd) {
     warnings.push(`Warning: skipped ${skipped} unparseable line(s) in ${targetFile}`);
   }
 
+  const assistantMsgs = messages.filter(message => (message.role || '').toLowerCase() === 'assistant');
+  const messageCount = assistantMsgs.length;
+
+  if (!sessionId) {
+    sessionId = path.basename(targetFile, path.extname(targetFile));
+  }
+
   let content = '';
   if (messages.length > 0) {
-    const assistantMsgs = messages.filter(message => (message.role || '').toLowerCase() === 'assistant');
-    const selected = assistantMsgs.length > 0 ? assistantMsgs[assistantMsgs.length - 1] : messages[messages.length - 1];
-    content = extractText(selected.content) || '[No text content]';
+    if (lastN > 1 && assistantMsgs.length > 0) {
+      const selected = assistantMsgs.slice(-lastN);
+      content = selected.map(m => extractText(m.content) || '[No text content]').join('\n---\n');
+    } else {
+      const selected = assistantMsgs.length > 0 ? assistantMsgs[assistantMsgs.length - 1] : messages[messages.length - 1];
+      content = extractText(selected.content) || '[No text content]';
+    }
   } else {
     content = `Could not extract structured messages. Showing last 20 raw lines:\n${lines.slice(-20).join('\n')}`;
   }
+
+  const messagesReturned = lastN > 1 ? Math.min(lastN, assistantMsgs.length) : 1;
 
   return {
     agent: 'codex',
     source: targetFile,
     content: redactSensitiveText(content),
     warnings,
+    session_id: sessionId,
+    cwd: sessionCwd,
+    timestamp: getFileTimestamp(targetFile),
+    message_count: messageCount,
+    messages_returned: messagesReturned,
   };
 }
 
-function readGeminiSession(id, chatsDir, cwd) {
+function readGeminiSession(id, chatsDir, cwd, lastN) {
+  lastN = lastN || 1;
   const resolved = resolveGeminiTargetFile(id, chatsDir, cwd);
   const targetFile = resolved.targetFile;
   if (!targetFile) {
@@ -362,36 +408,70 @@ function readGeminiSession(id, chatsDir, cwd) {
     throw new Error(`Failed to parse Gemini JSON: ${error.message}`);
   }
 
+  const sessionId = session.sessionId || path.basename(targetFile, path.extname(targetFile));
+
   let content = '';
+  let messageCount = 0;
+  let messagesReturned = 1;
   if (Array.isArray(session.messages)) {
-    const selected =
-      [...session.messages].reverse().find(message => {
-        const type = (message.type || '').toLowerCase();
-        return type === 'gemini' || type === 'assistant' || type === 'model';
-      }) || session.messages[session.messages.length - 1];
+    const assistantMsgs = session.messages.filter(message => {
+      const type = (message.type || '').toLowerCase();
+      return type === 'gemini' || type === 'assistant' || type === 'model';
+    });
+    messageCount = assistantMsgs.length;
 
-    if (!selected) {
-      throw new Error('Gemini session has no messages.');
-    }
-
-    content = typeof selected.content === 'string'
-      ? selected.content
-      : extractText(selected.content) || '[No text content]';
-  } else if (Array.isArray(session.history)) {
-    const selected =
-      [...session.history].reverse().find(turn => (turn.role || '').toLowerCase() !== 'user') ||
-      session.history[session.history.length - 1];
-
-    if (!selected) {
-      throw new Error('Gemini history is empty.');
-    }
-
-    if (Array.isArray(selected.parts)) {
-      content = selected.parts.map(part => part.text || '').join('\n');
-    } else if (typeof selected.parts === 'string') {
-      content = selected.parts;
+    if (lastN > 1 && assistantMsgs.length > 0) {
+      const selected = assistantMsgs.slice(-lastN);
+      messagesReturned = selected.length;
+      content = selected.map(m => {
+        return typeof m.content === 'string' ? m.content : extractText(m.content) || '[No text content]';
+      }).join('\n---\n');
     } else {
-      content = '[No text content]';
+      const selected =
+        [...session.messages].reverse().find(message => {
+          const type = (message.type || '').toLowerCase();
+          return type === 'gemini' || type === 'assistant' || type === 'model';
+        }) || session.messages[session.messages.length - 1];
+
+      if (!selected) {
+        throw new Error('Gemini session has no messages.');
+      }
+
+      content = typeof selected.content === 'string'
+        ? selected.content
+        : extractText(selected.content) || '[No text content]';
+    }
+  } else if (Array.isArray(session.history)) {
+    const assistantTurns = session.history.filter(turn => (turn.role || '').toLowerCase() !== 'user');
+    messageCount = assistantTurns.length;
+
+    if (lastN > 1 && assistantTurns.length > 0) {
+      const selected = assistantTurns.slice(-lastN);
+      messagesReturned = selected.length;
+      content = selected.map(turn => {
+        if (Array.isArray(turn.parts)) {
+          return turn.parts.map(part => part.text || '').join('\n');
+        } else if (typeof turn.parts === 'string') {
+          return turn.parts;
+        }
+        return '[No text content]';
+      }).join('\n---\n');
+    } else {
+      const selected =
+        [...session.history].reverse().find(turn => (turn.role || '').toLowerCase() !== 'user') ||
+        session.history[session.history.length - 1];
+
+      if (!selected) {
+        throw new Error('Gemini history is empty.');
+      }
+
+      if (Array.isArray(selected.parts)) {
+        content = selected.parts.map(part => part.text || '').join('\n');
+      } else if (typeof selected.parts === 'string') {
+        content = selected.parts;
+      } else {
+        content = '[No text content]';
+      }
     }
   } else {
     throw new Error('Unknown Gemini session schema. Supported fields: messages, history.');
@@ -402,10 +482,16 @@ function readGeminiSession(id, chatsDir, cwd) {
     source: targetFile,
     content: redactSensitiveText(content),
     warnings: [],
+    session_id: sessionId,
+    cwd: null,
+    timestamp: getFileTimestamp(targetFile),
+    message_count: messageCount,
+    messages_returned: messagesReturned,
   };
 }
 
-function readClaudeSession(id, cwd) {
+function readClaudeSession(id, cwd, lastN) {
+  lastN = lastN || 1;
   if (!fs.existsSync(claudeProjectsBase)) {
     throw new Error(`Claude projects directory not found: ${claudeProjectsBase}`);
   }
@@ -419,10 +505,14 @@ function readClaudeSession(id, cwd) {
   const lines = readJsonlLines(targetFile);
   const messages = [];
   let skipped = 0;
+  let sessionCwd = null;
 
   for (const line of lines) {
     try {
       const json = JSON.parse(line);
+      if (typeof json.cwd === 'string' && !sessionCwd) {
+        sessionCwd = json.cwd;
+      }
       const message = json.message || json;
       if (json.type === 'assistant' || message.role === 'assistant') {
         const content = message.content !== undefined ? message.content : json.content;
@@ -440,15 +530,34 @@ function readClaudeSession(id, cwd) {
     warnings.push(`Warning: skipped ${skipped} unparseable line(s) in ${targetFile}`);
   }
 
-  const content = messages.length > 0
-    ? messages[messages.length - 1]
-    : `Could not extract assistant messages. Showing last 20 raw lines:\n${lines.slice(-20).join('\n')}`;
+  const messageCount = messages.length;
+  const sessionId = path.basename(targetFile, path.extname(targetFile));
+  let content;
+  let messagesReturned = 1;
+
+  if (messages.length > 0) {
+    if (lastN > 1) {
+      const selected = messages.slice(-lastN);
+      messagesReturned = selected.length;
+      content = selected.join('\n---\n');
+    } else {
+      content = messages[messages.length - 1];
+    }
+  } else {
+    content = `Could not extract assistant messages. Showing last 20 raw lines:\n${lines.slice(-20).join('\n')}`;
+    messagesReturned = 0;
+  }
 
   return {
     agent: 'claude',
     source: targetFile,
     content: redactSensitiveText(content),
     warnings,
+    session_id: sessionId,
+    cwd: sessionCwd,
+    timestamp: getFileTimestamp(targetFile),
+    message_count: messageCount,
+    messages_returned: messagesReturned,
   };
 }
 
@@ -463,6 +572,9 @@ function readSource(sourceSpec, defaultCwd) {
   if (sourceSpec.agent === 'claude') {
     return readClaudeSession(sourceSpec.session_id || null, effectiveCwd);
   }
+  if (sourceSpec.agent === 'cursor') {
+    return readCursorSession(sourceSpec.session_id || null, effectiveCwd);
+  }
 
   throw new Error(`Unsupported agent: ${sourceSpec.agent}`);
 }
@@ -472,7 +584,7 @@ function parseSourceArg(raw) {
   const agent = (firstColon === -1 ? raw : raw.slice(0, firstColon)).trim().toLowerCase();
   const session = firstColon === -1 ? null : raw.slice(firstColon + 1).trim();
 
-  if (!['codex', 'gemini', 'claude'].includes(agent)) {
+  if (!['codex', 'gemini', 'claude', 'cursor'].includes(agent)) {
     throw new Error(`Unsupported agent: ${agent}`);
   }
 
@@ -540,7 +652,11 @@ function buildReport(request, defaultCwd) {
     }
   }
 
-  const uniqueContents = new Set(successful.map(item => (item.session.content || '').trim()));
+  const shouldNormalize = request.normalize === true;
+  const uniqueContents = new Set(successful.map(item => {
+    const text = (item.session.content || '').trim();
+    return shouldNormalize ? normalizeContent(text) : text;
+  }));
 
   if (successful.length >= 2) {
     if (uniqueContents.size > 1) {
@@ -669,19 +785,26 @@ function runRead(inputArgs) {
   const chatsDir = getOptionValue(inputArgs, '--chats-dir', null);
   const cwd = normalizePath(getOptionValue(inputArgs, '--cwd', process.cwd()));
   const asJson = hasFlag(inputArgs, '--json');
+  const lastN = parseInt(getOptionValue(inputArgs, '--last', '1'), 10) || 1;
 
   let result;
   if (agent === 'codex') {
-    result = readCodexSession(id, cwd);
+    result = readCodexSession(id, cwd, lastN);
   } else if (agent === 'gemini') {
-    result = readGeminiSession(id, chatsDir, cwd);
+    result = readGeminiSession(id, chatsDir, cwd, lastN);
   } else if (agent === 'claude') {
-    result = readClaudeSession(id, cwd);
+    result = readClaudeSession(id, cwd, lastN);
+  } else if (agent === 'cursor') {
+    result = readCursorSession(id, cwd, lastN);
   } else {
-    throw new Error(`Unknown agent: ${agent}. Supported: codex, gemini, claude`);
+    throw new Error(`Unknown agent: ${agent}. Supported: codex, gemini, claude, cursor`);
   }
 
   renderReadResult(result, asJson);
+}
+
+function normalizeContent(text) {
+  return text.trim().replace(/\s+/g, ' ');
 }
 
 function runCompare(inputArgs) {
@@ -692,6 +815,7 @@ function runCompare(inputArgs) {
 
   const cwd = normalizePath(getOptionValue(inputArgs, '--cwd', process.cwd()));
   const asJson = hasFlag(inputArgs, '--json');
+  const normalize = hasFlag(inputArgs, '--normalize');
   const sourceSpecs = sourcesRaw.map(parseSourceArg);
 
   const report = buildReport(
@@ -704,6 +828,7 @@ function runCompare(inputArgs) {
       ],
       sources: sourceSpecs,
       constraints: [],
+      normalize,
     },
     cwd
   );
@@ -742,7 +867,7 @@ function runReport(inputArgs) {
 
   const sourceSpecs = handoff.sources.map(source => {
     const agent = String(source.agent || '').toLowerCase();
-    if (!['codex', 'gemini', 'claude'].includes(agent)) {
+    if (!['codex', 'gemini', 'claude', 'cursor'].includes(agent)) {
       throw new Error(`Unsupported agent: ${agent}`);
     }
 
@@ -785,10 +910,17 @@ try {
     runCompare(args);
   } else if (command === 'report') {
     runReport(args);
+  } else if (command === 'list') {
+    runList(args);
   } else {
     throw new Error(`Unknown command: ${command}`);
   }
 } catch (error) {
-  console.error(error.message || String(error));
+  const msg = error.message || String(error);
+  if (hasFlag(args, '--json')) {
+    console.log(JSON.stringify({ error_code: classifyError(msg), message: msg }, null, 2));
+  } else {
+    console.error(msg);
+  }
   process.exit(1);
 }

@@ -22,6 +22,9 @@
     "schemas",
     "fixtures"
   ],
+  "devDependencies": {
+    "ajv-cli": "^5.0.0"
+  },
   "scripts": {
     "conformance": "bash scripts/conformance.sh",
     "check:readme": "bash scripts/check_readme_examples.sh",

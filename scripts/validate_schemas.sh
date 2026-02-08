@@ -62,7 +62,7 @@ if [[ "${BRIDGE_SKIP_AJV:-0}" == "1" ]]; then
   exit 0
 fi
 
-AJV_CMD=(npx --yes ajv-cli@5 validate --spec=draft2020)
+AJV_CMD=(npx ajv-cli validate --spec=draft2020)
 
 "${AJV_CMD[@]}" -s "$ROOT/schemas/handoff.schema.json" -d "$ROOT/fixtures/handoff-report.json"
 

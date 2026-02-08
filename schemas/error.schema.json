@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inter-agent-bridge.dev/schemas/error.schema.json",
+  "title": "Bridge Error Output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["error_code", "message"],
+  "properties": {
+    "error_code": {
+      "type": "string",
+      "enum": [
+        "NOT_FOUND",
+        "PARSE_FAILED",
+        "INVALID_HANDOFF",
+        "UNSUPPORTED_AGENT",
+        "UNSUPPORTED_MODE",
+        "IO_ERROR",
+        "EMPTY_SESSION"
+      ]
+    },
+    "message": {
+      "type": "string"
+    }
+  }
+}

@@ -8,7 +8,7 @@
   "properties": {
     "agent": {
       "type": "string",
-      "enum": ["codex", "gemini", "claude"]
+      "enum": ["codex", "gemini", "claude", "cursor"]
     },
     "source": {
       "type": "string",
@@ -20,6 +20,24 @@
     "warnings": {
       "type": "array",
       "items": { "type": "string" }
+    },
+    "session_id": {
+      "type": ["string", "null"]
+    },
+    "cwd": {
+      "type": ["string", "null"]
+    },
+    "timestamp": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "message_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "messages_returned": {
+      "type": "integer",
+      "minimum": 0
     }
   }
 }

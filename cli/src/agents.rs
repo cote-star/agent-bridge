@@ -6,12 +6,61 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BridgeErrorCode {
+    NotFound,
+    ParseFailed,
+    InvalidHandoff,
+    UnsupportedAgent,
+    UnsupportedMode,
+    IoError,
+    EmptySession,
+}
+
+impl BridgeErrorCode {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::NotFound => "NOT_FOUND",
+            Self::ParseFailed => "PARSE_FAILED",
+            Self::InvalidHandoff => "INVALID_HANDOFF",
+            Self::UnsupportedAgent => "UNSUPPORTED_AGENT",
+            Self::UnsupportedMode => "UNSUPPORTED_MODE",
+            Self::IoError => "IO_ERROR",
+            Self::EmptySession => "EMPTY_SESSION",
+        }
+    }
+}
+
+pub fn classify_error(message: &str) -> BridgeErrorCode {
+    let lower = message.to_ascii_lowercase();
+    if lower.contains("unsupported agent") {
+        BridgeErrorCode::UnsupportedAgent
+    } else if lower.contains("unsupported mode") {
+        BridgeErrorCode::UnsupportedMode
+    } else if lower.contains("no") && lower.contains("session found") || lower.contains("not found") {
+        BridgeErrorCode::NotFound
+    } else if lower.contains("failed to parse") || lower.contains("failed to read") {
+        BridgeErrorCode::ParseFailed
+    } else if lower.contains("missing required") || lower.contains("invalid handoff") || lower.contains("must provide session_id") {
+        BridgeErrorCode::InvalidHandoff
+    } else if lower.contains("has no messages") || lower.contains("history is empty") {
+        BridgeErrorCode::EmptySession
+    } else {
+        BridgeErrorCode::IoError
+    }
+}
+
 #[derive(Debug)]
 pub struct Session {
     pub agent: &'static str,
     pub content: String,
     pub source: String,
     pub warnings: Vec<String>,
+    pub session_id: Option<String>,
+    pub cwd: Option<String>,
+    pub timestamp: Option<String>,
+    pub message_count: usize,
+    pub messages_returned: usize,
 }
 
 #[derive(Clone)]
@@ -21,6 +70,10 @@ struct FileEntry {
 }
 
 pub fn read_codex_session(id: Option<&str>, cwd: &str) -> Result<Session> {
+    read_codex_session_with_last(id, cwd, 1)
+}
+
+pub fn read_codex_session_with_last(id: Option<&str>, cwd: &str, last_n: usize) -> Result<Session> {
     let base_dir = codex_base_dir();
     if !base_dir.exists() {
         return Err(anyhow!("No Codex session found."));
@@ -53,7 +106,7 @@ pub fn read_codex_session(id: Option<&str>, cwd: &str) -> Result<Session> {
         }
     };
 
-    let parsed = parse_codex_jsonl(&target_file)?;
+    let parsed = parse_codex_jsonl(&target_file, last_n)?;
     warnings.extend(parsed.warnings);
 
     Ok(Session {
@@ -61,10 +114,19 @@ pub fn read_codex_session(id: Option<&str>, cwd: &str) -> Result<Session> {
         content: parsed.content,
         source: target_file.to_string_lossy().to_string(),
         warnings,
+        session_id: parsed.session_id,
+        cwd: parsed.cwd,
+        timestamp: parsed.timestamp,
+        message_count: parsed.message_count,
+        messages_returned: parsed.messages_returned,
     })
 }
 
 pub fn read_claude_session(id: Option<&str>, cwd: &str) -> Result<Session> {
+    read_claude_session_with_last(id, cwd, 1)
+}
+
+pub fn read_claude_session_with_last(id: Option<&str>, cwd: &str, last_n: usize) -> Result<Session> {
     let base_dir = claude_base_dir();
     if !base_dir.exists() {
         return Err(anyhow!("Claude projects directory not found: {}", base_dir.display()));
@@ -97,7 +159,7 @@ pub fn read_claude_session(id: Option<&str>, cwd: &str) -> Result<Session> {
         }
     };
 
-    let parsed = parse_claude_jsonl(&target_file)?;
+    let parsed = parse_claude_jsonl(&target_file, last_n)?;
     warnings.extend(parsed.warnings);
 
     Ok(Session {
@@ -105,10 +167,19 @@ pub fn read_claude_session(id: Option<&str>, cwd: &str) -> Result<Session> {
         content: parsed.content,
         source: target_file.to_string_lossy().to_string(),
         warnings,
+        session_id: parsed.session_id,
+        cwd: parsed.cwd,
+        timestamp: parsed.timestamp,
+        message_count: parsed.message_count,
+        messages_returned: parsed.messages_returned,
     })
 }
 
 pub fn read_gemini_session(id: Option<&str>, cwd: &str, chats_dir: Option<&str>) -> Result<Session> {
+    read_gemini_session_with_last(id, cwd, chats_dir, 1)
+}
+
+pub fn read_gemini_session_with_last(id: Option<&str>, cwd: &str, chats_dir: Option<&str>, last_n: usize) -> Result<Session> {
     let dirs = resolve_gemini_chat_dirs(chats_dir, cwd)?;
     if dirs.is_empty() {
         return Err(anyhow!("No Gemini session found. Searched chats directories:"));
@@ -147,29 +218,49 @@ pub fn read_gemini_session(id: Option<&str>, cwd: &str, chats_dir: Option<&str>)
             .context("No Gemini session found.")?
     };
 
-    let parsed = parse_gemini_json(&target_file)?;
+    let parsed = parse_gemini_json(&target_file, last_n)?;
 
     Ok(Session {
         agent: "gemini",
         content: parsed.content,
         source: target_file.to_string_lossy().to_string(),
         warnings: parsed.warnings,
+        session_id: parsed.session_id,
+        cwd: parsed.cwd,
+        timestamp: parsed.timestamp,
+        message_count: parsed.message_count,
+        messages_returned: parsed.messages_returned,
     })
 }
 
 struct ParsedContent {
     content: String,
     warnings: Vec<String>,
+    session_id: Option<String>,
+    cwd: Option<String>,
+    timestamp: Option<String>,
+    message_count: usize,
+    messages_returned: usize,
 }
 
-fn parse_codex_jsonl(path: &Path) -> Result<ParsedContent> {
+fn parse_codex_jsonl(path: &Path, last_n: usize) -> Result<ParsedContent> {
     let lines = read_jsonl_lines(path)?;
     let mut messages: Vec<Value> = Vec::new();
     let mut skipped = 0usize;
+    let mut session_cwd: Option<String> = None;
+    let mut session_id: Option<String> = None;
 
     for line in &lines {
         match serde_json::from_str::<Value>(line) {
             Ok(json) => {
+                if json["type"] == "session_meta" {
+                    if let Some(cwd) = json["payload"]["cwd"].as_str() {
+                        session_cwd = Some(cwd.to_string());
+                    }
+                    if let Some(id) = json["payload"]["session_id"].as_str() {
+                        session_id = Some(id.to_string());
+                    }
+                }
                 if json["type"] == "response_item" && json["payload"]["type"] == "message" {
                     messages.push(json["payload"].clone());
                 } else if json["type"] == "event_msg" && json["payload"]["type"] == "agent_message" {
@@ -193,6 +284,16 @@ fn parse_codex_jsonl(path: &Path) -> Result<ParsedContent> {
         ));
     }
 
+    let message_count = messages.iter().filter(|m| {
+        m["role"].as_str().unwrap_or("").eq_ignore_ascii_case("assistant")
+    }).count();
+
+    let timestamp = file_modified_iso(path);
+
+    if session_id.is_none() {
+        session_id = path.file_stem().and_then(|s| s.to_str()).map(|s| s.to_string());
+    }
+
     if !messages.is_empty() {
         let mut selected = messages.last().cloned();
         for message in messages.iter().rev() {
@@ -211,6 +312,10 @@ fn parse_codex_jsonl(path: &Path) -> Result<ParsedContent> {
                     redact_sensitive_text(&text)
                 },
                 warnings,
+                session_id,
+                cwd: session_cwd,
+                timestamp,
+                message_count,
             });
         }
     }
@@ -230,6 +335,10 @@ fn parse_codex_jsonl(path: &Path) -> Result<ParsedContent> {
                 .join("\n")
         )),
         warnings,
+        session_id,
+        cwd: session_cwd,
+        timestamp,
+        message_count,
     })
 }
 
@@ -237,10 +346,17 @@ fn parse_claude_jsonl(path: &Path) -> Result<ParsedContent> {
     let lines = read_jsonl_lines(path)?;
     let mut messages: Vec<String> = Vec::new();
     let mut skipped = 0usize;
+    let mut session_cwd: Option<String> = None;
 
     for line in &lines {
         match serde_json::from_str::<Value>(line) {
             Ok(json) => {
+                if let Some(cwd) = json["cwd"].as_str() {
+                    if session_cwd.is_none() {
+                        session_cwd = Some(cwd.to_string());
+                    }
+                }
+
                 let message = if json.get("message").is_some() {
                     &json["message"]
                 } else {
@@ -280,10 +396,18 @@ fn parse_claude_jsonl(path: &Path) -> Result<ParsedContent> {
         ));
     }
 
+    let message_count = messages.len();
+    let timestamp = file_modified_iso(path);
+    let session_id = path.file_stem().and_then(|s| s.to_str()).map(|s| s.to_string());
+
     if let Some(last) = messages.last() {
         return Ok(ParsedContent {
             content: redact_sensitive_text(last),
             warnings,
+            session_id,
+            cwd: session_cwd,
+            timestamp,
+            message_count,
         });
     }
 
@@ -302,15 +426,30 @@ fn parse_claude_jsonl(path: &Path) -> Result<ParsedContent> {
                 .join("\n")
         )),
         warnings,
+        session_id,
+        cwd: session_cwd,
+        timestamp,
+        message_count,
     })
 }
 
 fn parse_gemini_json(path: &Path) -> Result<ParsedContent> {
-    let content = fs::read_to_string(path)?;
-    let session: Value = serde_json::from_str(&content)
+    let raw_content = fs::read_to_string(path)?;
+    let session: Value = serde_json::from_str(&raw_content)
         .map_err(|e| anyhow!("Failed to parse Gemini JSON: {}", e))?;
 
+    let session_id = session["sessionId"].as_str().map(|s| s.to_string())
+        .or_else(|| path.file_stem().and_then(|s| s.to_str()).map(|s| s.to_string()));
+    let timestamp = file_modified_iso(path);
+
     if let Some(messages) = session["messages"].as_array() {
+        let assistant_count = messages.iter().filter(|m| {
+            m["type"].as_str().map(|t| {
+                let lower = t.to_ascii_lowercase();
+                lower == "gemini" || lower == "assistant" || lower == "model"
+            }).unwrap_or(false)
+        }).count();
+
         let selected = messages
             .iter()
             .rev()
@@ -336,12 +475,20 @@ fn parse_gemini_json(path: &Path) -> Result<ParsedContent> {
                     }
                 },
                 warnings: Vec::new(),
+                session_id,
+                cwd: None,
+                timestamp,
+                message_count: assistant_count,
             });
         }
         return Err(anyhow!("Gemini session has no messages."));
     }
 
     if let Some(history) = session["history"].as_array() {
+        let assistant_count = history.iter().filter(|t| {
+            !t["role"].as_str().map(|r| r.eq_ignore_ascii_case("user")).unwrap_or(false)
+        }).count();
+
         let selected = history
             .iter()
             .rev()
@@ -369,6 +516,10 @@ fn parse_gemini_json(path: &Path) -> Result<ParsedContent> {
             return Ok(ParsedContent {
                 content: redact_sensitive_text(&text),
                 warnings: Vec::new(),
+                session_id,
+                cwd: None,
+                timestamp,
+                message_count: assistant_count,
             });
         }
 
@@ -422,6 +573,39 @@ fn extract_claude_text(value: &Value) -> String {
     }
 
     String::new()
+}
+
+fn file_modified_iso(path: &Path) -> Option<String> {
+    fs::metadata(path)
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .map(|mtime| {
+            let duration = mtime.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default();
+            let secs = duration.as_secs();
+            let days = secs / 86400;
+            let time_secs = secs % 86400;
+            let hours = time_secs / 3600;
+            let minutes = (time_secs % 3600) / 60;
+            let seconds = time_secs % 60;
+            // Simple epoch-to-date calculation
+            let (year, month, day) = epoch_days_to_date(days);
+            format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", year, month, day, hours, minutes, seconds)
+        })
+}
+
+fn epoch_days_to_date(days: u64) -> (u64, u64, u64) {
+    // Civil from days algorithm
+    let z = days + 719468;
+    let era = z / 146097;
+    let doe = z - era * 146097;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    (y, m, d)
 }
 
 fn read_jsonl_lines(path: &Path) -> Result<Vec<String>> {

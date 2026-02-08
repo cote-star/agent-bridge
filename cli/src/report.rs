@@ -19,6 +19,7 @@ pub struct ReportRequest {
     pub success_criteria: Vec<String>,
     pub sources: Vec<SourceSpec>,
     pub constraints: Vec<String>,
+    pub normalize: bool,
 }
 
 pub fn parse_source_arg(raw: &str) -> Result<SourceSpec> {
@@ -119,6 +120,7 @@ pub fn load_handoff(path: &str) -> Result<ReportRequest> {
         success_criteria,
         sources,
         constraints,
+        normalize: false,
     })
 }
 
@@ -158,7 +160,14 @@ pub fn build_report(request: &ReportRequest, default_cwd: &str) -> Value {
 
     let unique_contents: HashSet<String> = successful
         .iter()
-        .map(|(_, session, _)| session.content.trim().to_string())
+        .map(|(_, session, _)| {
+            let text = session.content.trim().to_string();
+            if request.normalize {
+                normalize_content(&text)
+            } else {
+                text
+            }
+        })
         .collect();
 
     if successful.len() >= 2 {
@@ -297,12 +306,17 @@ pub fn report_to_markdown(report: &Value) -> String {
     lines.join("\n")
 }
 
+fn normalize_content(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<&str>>().join(" ")
+}
+
 fn read_source(source: &SourceSpec, default_cwd: &str) -> Result<Session> {
     let cwd = source.cwd.as_deref().unwrap_or(default_cwd);
     match source.agent.as_str() {
         "codex" => read_codex_session(source.session_id.as_deref(), cwd),
         "gemini" => read_gemini_session(source.session_id.as_deref(), cwd, source.chats_dir.as_deref()),
         "claude" => read_claude_session(source.session_id.as_deref(), cwd),
+        "cursor" => crate::agents::read_cursor_session(source.session_id.as_deref(), cwd),
         _ => Err(anyhow!("Unsupported agent: {}", source.agent)),
     }
 }
@@ -348,7 +362,7 @@ fn compute_verdict(mode: &str, missing: &[(SourceSpec, String, String)], unique_
 
 fn validate_agent(agent: &str) -> Result<()> {
     match agent {
-        "codex" | "gemini" | "claude" => Ok(()),
+        "codex" | "gemini" | "claude" | "cursor" => Ok(()),
         _ => Err(anyhow!("Unsupported agent: {}", agent)),
     }
 }
