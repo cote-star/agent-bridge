@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Validate Node script syntax
+        run: node --check scripts/read_session.cjs
+
+      - name: Build Rust CLI
+        run: cargo check --manifest-path cli/Cargo.toml
+
+      - name: Run cross-implementation conformance
+        run: bash scripts/conformance.sh
+
+      - name: Validate JSON schemas against fixtures and outputs
+        run: bash scripts/validate_schemas.sh

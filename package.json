@@ -1,0 +1,30 @@
+{
+  "name": "inter-agent-bridge-cli",
+  "version": "0.2.0",
+  "private": false,
+  "type": "commonjs",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cote-star/agent-bridge.git"
+  },
+  "homepage": "https://github.com/cote-star/agent-bridge",
+  "bugs": {
+    "url": "https://github.com/cote-star/agent-bridge/issues"
+  },
+  "bin": {
+    "bridge-node": "scripts/read_session.cjs"
+  },
+  "files": [
+    "scripts/read_session.cjs",
+    "PROTOCOL.md",
+    "README.md",
+    "schemas",
+    "fixtures"
+  ],
+  "scripts": {
+    "conformance": "bash scripts/conformance.sh",
+    "validate:schemas": "bash scripts/validate_schemas.sh",
+    "check": "npm run conformance && npm run validate:schemas"
+  }
+}
