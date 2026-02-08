@@ -364,6 +364,8 @@ npm uninstall puppeteer
 
 `bridge trash-talk` roasts your agents based on their session content. Try it.
 
+![Trash Talk Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-trash-talk.webp)
+
 ### Adding a New Agent
 
 1. **Rust**: Create `cli/src/adapters/<agent>.rs` implementing `AgentAdapter`, register in `mod.rs`
