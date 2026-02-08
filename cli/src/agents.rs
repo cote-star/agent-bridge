@@ -66,7 +66,7 @@ pub struct Session {
 #[derive(Clone)]
 struct FileEntry {
     path: PathBuf,
-    mtime_ms: u128,
+    mtime_ns: u128,
 }
 
 #[allow(dead_code)]
@@ -820,12 +820,12 @@ where
             let mtime = fs::metadata(&path)
                 .and_then(|m| m.modified())
                 .unwrap_or(SystemTime::UNIX_EPOCH);
-            let mtime_ms = mtime
+            let mtime_ns = mtime
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap_or_default()
-                .as_millis();
+                .as_nanos();
 
-            matches.push(FileEntry { path, mtime_ms });
+            matches.push(FileEntry { path, mtime_ns });
         }
     }
 
@@ -835,7 +835,7 @@ where
 
 fn sort_files_by_mtime_desc(files: &mut [FileEntry]) {
     files.sort_by(|a, b| {
-        b.mtime_ms.cmp(&a.mtime_ms).then_with(|| {
+        b.mtime_ns.cmp(&a.mtime_ns).then_with(|| {
             a.path
                 .to_string_lossy()
                 .cmp(&b.path.to_string_lossy())

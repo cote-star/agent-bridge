@@ -82,8 +82,17 @@ function collectMatchingFiles(dirPath, predicate, recursive = false) {
       if (!predicate(fullPath, entry.name)) continue;
 
       try {
-        const stat = fs.statSync(fullPath);
-        matches.push({ path: fullPath, mtimeMs: stat.mtimeMs });
+        // Prefer nanosecond precision to keep "latest" selection stable
+        // across runtimes and filesystems.
+        let mtimeNs;
+        try {
+          const statBig = fs.statSync(fullPath, { bigint: true });
+          mtimeNs = statBig.mtimeNs;
+        } catch (_error) {
+          const stat = fs.statSync(fullPath);
+          mtimeNs = BigInt(Math.trunc(stat.mtimeMs * 1e6));
+        }
+        matches.push({ path: fullPath, mtimeNs });
       } catch (error) {
         // Ignore entries that disappear while scanning.
       }
@@ -92,8 +101,8 @@ function collectMatchingFiles(dirPath, predicate, recursive = false) {
 
   search(dirPath);
   matches.sort((a, b) => {
-    if (b.mtimeMs !== a.mtimeMs) {
-      return b.mtimeMs - a.mtimeMs;
+    if (b.mtimeNs !== a.mtimeNs) {
+      return b.mtimeNs > a.mtimeNs ? 1 : -1;
     }
     return String(a.path).localeCompare(String(b.path));
   });
