@@ -4,9 +4,10 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
+const { getAdapter } = require('./adapters/registry.cjs');
 
 const rawArgs = process.argv.slice(2);
-const commandNames = new Set(['read', 'compare', 'report', 'list']);
+const commandNames = new Set(['read', 'compare', 'report', 'list', 'search']);
 const command = commandNames.has(rawArgs[0]) ? rawArgs[0] : 'read';
 const args = commandNames.has(rawArgs[0]) ? rawArgs.slice(1) : rawArgs;
 
@@ -643,72 +644,39 @@ function readCursorSession(id, cwd, lastN) {
 }
 
 function listSessions(agent, cwd, limit) {
-  limit = limit || 10;
+  const adapter = getAdapter(agent);
+  return adapter.list(cwd || null, limit || 10);
+}
 
-  if (agent === 'codex') {
-    if (!fs.existsSync(codexSessionsBase)) return [];
-    const files = collectMatchingFiles(codexSessionsBase, (_fp, name) => name.endsWith('.jsonl'), true);
-    return files.slice(0, limit).map(f => ({
-      session_id: path.basename(f.path, path.extname(f.path)),
-      agent: 'codex',
-      cwd: getCodexSessionCwd(f.path) || null,
-      modified_at: getFileTimestamp(f.path),
-      file_path: f.path,
-    }));
+function searchSessions(query, agent, cwd, limit) {
+  const adapter = getAdapter(agent);
+  if (typeof adapter.search !== 'function') {
+    throw new Error(`Search is not implemented for agent: ${agent}`);
   }
+  return adapter.search(query, cwd || null, limit || 10);
+}
 
-  if (agent === 'gemini') {
-    const dirs = resolveGeminiChatDirs(null, cwd);
-    const candidates = [];
-    for (const dir of dirs) {
-      const files = collectMatchingFiles(dir, (fp, name) => name.endsWith('.json') && name.startsWith('session-'), false);
-      for (const f of files) candidates.push(f);
+function readSessionViaAdapter(agent, { id, cwd, chatsDir, lastN }) {
+  const adapter = getAdapter(agent);
+  const resolved = adapter.resolve(id || null, cwd, { chatsDir: chatsDir || null });
+
+  if (!resolved || !resolved.path) {
+    if (agent === 'gemini' && chatsDir) {
+      throw new Error(`No Gemini session found in ${normalizePath(chatsDir)}`);
     }
-    candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
-    return candidates.slice(0, limit).map(f => ({
-      session_id: path.basename(f.path, path.extname(f.path)),
-      agent: 'gemini',
-      cwd: null,
-      modified_at: getFileTimestamp(f.path),
-      file_path: f.path,
-    }));
+    throw new Error(`No ${agent.charAt(0).toUpperCase() + agent.slice(1)} session found.`);
   }
 
-  if (agent === 'claude') {
-    if (!fs.existsSync(claudeProjectsBase)) return [];
-    const files = collectMatchingFiles(claudeProjectsBase, (_fp, name) => name.endsWith('.jsonl'), true);
-    return files.slice(0, limit).map(f => ({
-      session_id: path.basename(f.path, path.extname(f.path)),
-      agent: 'claude',
-      cwd: getClaudeSessionCwd(f.path) || null,
-      modified_at: getFileTimestamp(f.path),
-      file_path: f.path,
-    }));
-  }
-
-  if (agent === 'cursor') {
-    if (!fs.existsSync(cursorDataBase)) return [];
-    const workspacesDir = path.join(cursorDataBase, 'User', 'workspaceStorage');
-    if (!fs.existsSync(workspacesDir)) return [];
-    const files = collectMatchingFiles(workspacesDir, (_fp, name) => {
-      return (name.endsWith('.json') || name.endsWith('.jsonl'))
-        && (name.includes('chat') || name.includes('composer') || name.includes('conversation'));
-    }, true);
-    return files.slice(0, limit).map(f => ({
-      session_id: path.basename(f.path, path.extname(f.path)),
-      agent: 'cursor',
-      cwd: null,
-      modified_at: getFileTimestamp(f.path),
-      file_path: f.path,
-    }));
-  }
-
-  throw new Error(`Unsupported agent: ${agent}`);
+  const result = adapter.read(resolved.path, lastN || 1);
+  const adapterWarnings = Array.isArray(resolved.warnings) ? resolved.warnings : [];
+  result.warnings = [...adapterWarnings, ...(result.warnings || [])];
+  return result;
 }
 
 function runList(inputArgs) {
   const agent = getOptionValue(inputArgs, '--agent', 'codex');
-  const cwd = normalizePath(getOptionValue(inputArgs, '--cwd', process.cwd()));
+  const rawCwd = getOptionValue(inputArgs, '--cwd', null);
+  const cwd = rawCwd ? normalizePath(rawCwd) : null;
   const limit = parseInt(getOptionValue(inputArgs, '--limit', '10'), 10) || 10;
   const asJson = hasFlag(inputArgs, '--json');
 
@@ -725,20 +693,12 @@ function runList(inputArgs) {
 
 function readSource(sourceSpec, defaultCwd) {
   const effectiveCwd = normalizePath(sourceSpec.cwd || defaultCwd);
-  if (sourceSpec.agent === 'codex') {
-    return readCodexSession(sourceSpec.session_id || null, effectiveCwd);
-  }
-  if (sourceSpec.agent === 'gemini') {
-    return readGeminiSession(sourceSpec.session_id || null, sourceSpec.chats_dir || null, effectiveCwd);
-  }
-  if (sourceSpec.agent === 'claude') {
-    return readClaudeSession(sourceSpec.session_id || null, effectiveCwd);
-  }
-  if (sourceSpec.agent === 'cursor') {
-    return readCursorSession(sourceSpec.session_id || null, effectiveCwd);
-  }
-
-  throw new Error(`Unsupported agent: ${sourceSpec.agent}`);
+  return readSessionViaAdapter(sourceSpec.agent, {
+    id: sourceSpec.session_id || null,
+    cwd: effectiveCwd,
+    chatsDir: sourceSpec.chats_dir || null,
+    lastN: 1,
+  });
 }
 
 function parseSourceArg(raw) {
@@ -896,7 +856,7 @@ function renderReport(result, asJson) {
   }
 
   const lines = [];
-  lines.push('### Inter-Agent Coordinator Report');
+  lines.push('### Agent Bridge Coordinator Report');
   lines.push('');
   lines.push(`**Mode:** ${result.mode}`);
   lines.push(`**Task:** ${result.task}`);
@@ -949,20 +909,40 @@ function runRead(inputArgs) {
   const asJson = hasFlag(inputArgs, '--json');
   const lastN = parseInt(getOptionValue(inputArgs, '--last', '1'), 10) || 1;
 
-  let result;
-  if (agent === 'codex') {
-    result = readCodexSession(id, cwd, lastN);
-  } else if (agent === 'gemini') {
-    result = readGeminiSession(id, chatsDir, cwd, lastN);
-  } else if (agent === 'claude') {
-    result = readClaudeSession(id, cwd, lastN);
-  } else if (agent === 'cursor') {
-    result = readCursorSession(id, cwd, lastN);
-  } else {
-    throw new Error(`Unknown agent: ${agent}. Supported: codex, gemini, claude, cursor`);
-  }
+  const result = readSessionViaAdapter(agent, {
+    id,
+    cwd,
+    chatsDir,
+    lastN,
+  });
 
   renderReadResult(result, asJson);
+}
+
+function runSearch(inputArgs) {
+  const query = inputArgs[0];
+  if (!query || query.startsWith('--')) {
+    throw new Error('search requires a query string as the first argument');
+  }
+
+  const agent = getOptionValue(inputArgs, '--agent', null);
+  if (!agent) {
+    throw new Error('search requires --agent=<codex|gemini|claude|cursor>');
+  }
+
+  const rawCwd = getOptionValue(inputArgs, '--cwd', null);
+  const cwd = rawCwd ? normalizePath(rawCwd) : null;
+  const limit = parseInt(getOptionValue(inputArgs, '--limit', '10'), 10) || 10;
+  const asJson = hasFlag(inputArgs, '--json');
+
+  const entries = searchSessions(query, agent, cwd, limit);
+  if (asJson) {
+    console.log(JSON.stringify(entries, null, 2));
+  } else {
+    for (const entry of entries) {
+      console.log(JSON.stringify(entry));
+    }
+  }
 }
 
 function normalizeContent(text) {
@@ -1074,6 +1054,8 @@ try {
     runReport(args);
   } else if (command === 'list') {
     runList(args);
+  } else if (command === 'search') {
+    runSearch(args);
   } else {
     throw new Error(`Unknown command: ${command}`);
   }

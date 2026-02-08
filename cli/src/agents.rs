@@ -69,6 +69,7 @@ struct FileEntry {
     mtime_ms: u128,
 }
 
+#[allow(dead_code)]
 pub fn read_codex_session(id: Option<&str>, cwd: &str) -> Result<Session> {
     read_codex_session_with_last(id, cwd, 1)
 }
@@ -122,6 +123,7 @@ pub fn read_codex_session_with_last(id: Option<&str>, cwd: &str, last_n: usize) 
     })
 }
 
+#[allow(dead_code)]
 pub fn read_claude_session(id: Option<&str>, cwd: &str) -> Result<Session> {
     read_claude_session_with_last(id, cwd, 1)
 }
@@ -175,6 +177,7 @@ pub fn read_claude_session_with_last(id: Option<&str>, cwd: &str, last_n: usize)
     })
 }
 
+#[allow(dead_code)]
 pub fn read_gemini_session(id: Option<&str>, cwd: &str, chats_dir: Option<&str>) -> Result<Session> {
     read_gemini_session_with_last(id, cwd, chats_dir, 1)
 }
@@ -757,6 +760,33 @@ fn resolve_gemini_chat_dirs(chats_dir: Option<&str>, cwd: &str) -> Result<Vec<Pa
     Ok(ordered)
 }
 
+fn resolve_gemini_chat_dirs_for_listing(cwd: Option<&str>) -> Result<Vec<PathBuf>> {
+    if let Some(scope) = cwd {
+        let normalized_cwd = normalize_path(scope)?;
+        let scoped_hash = hash_path(&normalized_cwd);
+        let dir = gemini_tmp_base_dir().join(scoped_hash).join("chats");
+        if dir.exists() {
+            return Ok(vec![dir]);
+        }
+        return Ok(Vec::new());
+    }
+
+    let tmp_base = gemini_tmp_base_dir();
+    let mut ordered = Vec::new();
+    if let Ok(entries) = fs::read_dir(&tmp_base) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let chats = path.join("chats");
+                if chats.exists() {
+                    ordered.push(chats);
+                }
+            }
+        }
+    }
+    Ok(ordered)
+}
+
 fn collect_matching_files<F>(dir: &Path, recursive: bool, predicate: &F) -> Result<Vec<FileEntry>>
 where
     F: Fn(&Path) -> bool,
@@ -996,13 +1026,19 @@ fn redact_assignment_for_key(input: &str, keyword: &str) -> String {
 
 // --- List functions ---
 
-pub fn list_codex_sessions(_cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
+pub fn list_codex_sessions(cwd: Option<&str>, limit: usize) -> Result<Vec<serde_json::Value>> {
     let base_dir = codex_base_dir();
     if !base_dir.exists() { return Ok(Vec::new()); }
     let files = collect_matching_files(&base_dir, true, &|p| has_extension(p, "jsonl"))?;
+    let expected_cwd = cwd.map(normalize_path).transpose()?;
     let mut entries = Vec::new();
-    for file in files.iter().take(limit) {
+    for file in files {
         let file_cwd = get_codex_session_cwd(&file.path);
+        if let Some(expected) = expected_cwd.as_ref() {
+            if file_cwd.as_ref() != Some(expected) {
+                continue;
+            }
+        }
         let session_id = file.path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string();
         entries.push(serde_json::json!({
             "session_id": session_id,
@@ -1011,17 +1047,26 @@ pub fn list_codex_sessions(_cwd: &str, limit: usize) -> Result<Vec<serde_json::V
             "modified_at": file_modified_iso(&file.path),
             "file_path": file.path.to_string_lossy().to_string(),
         }));
+        if entries.len() >= limit {
+            break;
+        }
     }
     Ok(entries)
 }
 
-pub fn list_claude_sessions(_cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
+pub fn list_claude_sessions(cwd: Option<&str>, limit: usize) -> Result<Vec<serde_json::Value>> {
     let base_dir = claude_base_dir();
     if !base_dir.exists() { return Ok(Vec::new()); }
     let files = collect_matching_files(&base_dir, true, &|p| has_extension(p, "jsonl"))?;
+    let expected_cwd = cwd.map(normalize_path).transpose()?;
     let mut entries = Vec::new();
-    for file in files.iter().take(limit) {
+    for file in files {
         let file_cwd = get_claude_session_cwd(&file.path);
+        if let Some(expected) = expected_cwd.as_ref() {
+            if file_cwd.as_ref() != Some(expected) {
+                continue;
+            }
+        }
         let session_id = file.path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string();
         entries.push(serde_json::json!({
             "session_id": session_id,
@@ -1030,12 +1075,15 @@ pub fn list_claude_sessions(_cwd: &str, limit: usize) -> Result<Vec<serde_json::
             "modified_at": file_modified_iso(&file.path),
             "file_path": file.path.to_string_lossy().to_string(),
         }));
+        if entries.len() >= limit {
+            break;
+        }
     }
     Ok(entries)
 }
 
-pub fn list_gemini_sessions(cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
-    let dirs = resolve_gemini_chat_dirs(None, cwd)?;
+pub fn list_gemini_sessions(cwd: Option<&str>, limit: usize) -> Result<Vec<serde_json::Value>> {
+    let dirs = resolve_gemini_chat_dirs_for_listing(cwd)?;
     let mut candidates = Vec::new();
     for dir in &dirs {
         let mut files = collect_matching_files(dir, false, &|p| {
@@ -1060,24 +1108,30 @@ pub fn list_gemini_sessions(cwd: &str, limit: usize) -> Result<Vec<serde_json::V
 
 // --- Search functions ---
 
-pub fn search_codex_sessions(query: &str, _cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
+pub fn search_codex_sessions(query: &str, cwd: Option<&str>, limit: usize) -> Result<Vec<serde_json::Value>> {
     let base_dir = codex_base_dir();
     if !base_dir.exists() { return Ok(Vec::new()); }
     let files = collect_matching_files(&base_dir, true, &|p| has_extension(p, "jsonl"))?;
-    
+    let expected_cwd = cwd.map(normalize_path).transpose()?;
     let query_lower = query.to_ascii_lowercase();
     let mut entries = Vec::new();
-    
+
     for file in files {
         if entries.len() >= limit { break; }
-        
+
+        let file_cwd = get_codex_session_cwd(&file.path);
+        if let Some(expected) = expected_cwd.as_ref() {
+            if file_cwd.as_ref() != Some(expected) {
+                continue;
+            }
+        }
+
         let content = match fs::read_to_string(&file.path) {
             Ok(c) => c,
             Err(_) => continue,
         };
-        
+
         if content.to_ascii_lowercase().contains(&query_lower) {
-            let file_cwd = get_codex_session_cwd(&file.path);
             let session_id = file.path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string();
             entries.push(serde_json::json!({
                 "session_id": session_id,
@@ -1091,24 +1145,30 @@ pub fn search_codex_sessions(query: &str, _cwd: &str, limit: usize) -> Result<Ve
     Ok(entries)
 }
 
-pub fn search_claude_sessions(query: &str, _cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
+pub fn search_claude_sessions(query: &str, cwd: Option<&str>, limit: usize) -> Result<Vec<serde_json::Value>> {
     let base_dir = claude_base_dir();
     if !base_dir.exists() { return Ok(Vec::new()); }
     let files = collect_matching_files(&base_dir, true, &|p| has_extension(p, "jsonl"))?;
-    
+    let expected_cwd = cwd.map(normalize_path).transpose()?;
     let query_lower = query.to_ascii_lowercase();
     let mut entries = Vec::new();
-    
+
     for file in files {
         if entries.len() >= limit { break; }
-        
+
+        let file_cwd = get_claude_session_cwd(&file.path);
+        if let Some(expected) = expected_cwd.as_ref() {
+            if file_cwd.as_ref() != Some(expected) {
+                continue;
+            }
+        }
+
         let content = match fs::read_to_string(&file.path) {
             Ok(c) => c,
             Err(_) => continue,
         };
-        
+
         if content.to_ascii_lowercase().contains(&query_lower) {
-            let file_cwd = get_claude_session_cwd(&file.path);
             let session_id = file.path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string();
             entries.push(serde_json::json!({
                 "session_id": session_id,
@@ -1122,8 +1182,8 @@ pub fn search_claude_sessions(query: &str, _cwd: &str, limit: usize) -> Result<V
     Ok(entries)
 }
 
-pub fn search_gemini_sessions(query: &str, cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
-    let dirs = resolve_gemini_chat_dirs(None, cwd)?;
+pub fn search_gemini_sessions(query: &str, cwd: Option<&str>, limit: usize) -> Result<Vec<serde_json::Value>> {
+    let dirs = resolve_gemini_chat_dirs_for_listing(cwd)?;
     let mut candidates = Vec::new();
     for dir in &dirs {
         let mut files = collect_matching_files(dir, false, &|p| {
@@ -1158,7 +1218,7 @@ pub fn search_gemini_sessions(query: &str, cwd: &str, limit: usize) -> Result<Ve
     Ok(entries)
 }
 
-pub fn search_cursor_sessions(query: &str, _cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
+pub fn search_cursor_sessions(query: &str, cwd: Option<&str>, limit: usize) -> Result<Vec<serde_json::Value>> {
     let base_dir = cursor_base_dir();
     if !base_dir.exists() { return Ok(Vec::new()); }
 
@@ -1172,6 +1232,10 @@ pub fn search_cursor_sessions(query: &str, _cwd: &str, limit: usize) -> Result<V
     })?;
 
     let query_lower = query.to_ascii_lowercase();
+    let expected_cwd = cwd.map(normalize_path).transpose()?;
+    let expected_cwd_text = expected_cwd
+        .as_ref()
+        .map(|path| path.to_string_lossy().to_ascii_lowercase());
     let mut entries = Vec::new();
 
     for file in files {
@@ -1181,6 +1245,12 @@ pub fn search_cursor_sessions(query: &str, _cwd: &str, limit: usize) -> Result<V
             Ok(c) => c,
             Err(_) => continue,
         };
+
+        if let Some(expected) = expected_cwd_text.as_ref() {
+            if !content.to_ascii_lowercase().contains(expected) {
+                continue;
+            }
+        }
 
         if content.to_ascii_lowercase().contains(&query_lower) {
             let session_id = file.path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string();
@@ -1294,7 +1364,7 @@ pub fn read_cursor_session(id: Option<&str>, _cwd: &str) -> Result<Session> {
     })
 }
 
-pub fn list_cursor_sessions(_cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
+pub fn list_cursor_sessions(cwd: Option<&str>, limit: usize) -> Result<Vec<serde_json::Value>> {
     let base_dir = cursor_base_dir();
     if !base_dir.exists() { return Ok(Vec::new()); }
 
@@ -1307,8 +1377,22 @@ pub fn list_cursor_sessions(_cwd: &str, limit: usize) -> Result<Vec<serde_json::
             && (name.contains("chat") || name.contains("composer") || name.contains("conversation"))
     })?;
 
+    let expected_cwd = cwd.map(normalize_path).transpose()?;
+    let expected_cwd_text = expected_cwd
+        .as_ref()
+        .map(|path| path.to_string_lossy().to_ascii_lowercase());
     let mut entries = Vec::new();
-    for file in files.iter().take(limit) {
+    for file in files {
+        if let Some(expected) = expected_cwd_text.as_ref() {
+            let content = match fs::read_to_string(&file.path) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+            if !content.to_ascii_lowercase().contains(expected) {
+                continue;
+            }
+        }
+
         let session_id = file.path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string();
         entries.push(serde_json::json!({
             "session_id": session_id,
@@ -1317,6 +1401,9 @@ pub fn list_cursor_sessions(_cwd: &str, limit: usize) -> Result<Vec<serde_json::
             "modified_at": file_modified_iso(&file.path),
             "file_path": file.path.to_string_lossy().to_string(),
         }));
+        if entries.len() >= limit {
+            break;
+        }
     }
     Ok(entries)
 }

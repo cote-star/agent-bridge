@@ -136,7 +136,12 @@ function read(filePath, lastN) {
 
 function list(cwd, limit) {
   limit = limit || 10;
-  const dirs = resolveGeminiChatDirs(null, cwd);
+  const dirs = cwd
+    ? (() => {
+      const scoped = path.join(geminiTmpBase, hashPath(cwd), 'chats');
+      return fs.existsSync(scoped) ? [scoped] : [];
+    })()
+    : listGeminiChatDirs();
   const candidates = [];
   for (const dir of dirs) {
     const files = collectMatchingFiles(dir, (fp, name) => name.endsWith('.json') && name.startsWith('session-'), false);
@@ -152,4 +157,47 @@ function list(cwd, limit) {
   }));
 }
 
-module.exports = { resolve, read, list };
+function search(query, cwd, limit) {
+  limit = limit || 10;
+  const queryLower = String(query || '').toLowerCase();
+  const dirs = cwd
+    ? (() => {
+      const scoped = path.join(geminiTmpBase, hashPath(cwd), 'chats');
+      return fs.existsSync(scoped) ? [scoped] : [];
+    })()
+    : listGeminiChatDirs();
+  const candidates = [];
+  for (const dir of dirs) {
+    const files = collectMatchingFiles(dir, (fp, name) => name.endsWith('.json') && name.startsWith('session-'), false);
+    for (const f of files) candidates.push(f);
+  }
+  candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+
+  const entries = [];
+  for (const f of candidates) {
+    if (entries.length >= limit) break;
+
+    let content;
+    try {
+      content = fs.readFileSync(f.path, 'utf-8');
+    } catch (error) {
+      continue;
+    }
+
+    if (!content.toLowerCase().includes(queryLower)) {
+      continue;
+    }
+
+    entries.push({
+      session_id: path.basename(f.path, path.extname(f.path)),
+      agent: 'gemini',
+      cwd: null,
+      modified_at: getFileTimestamp(f.path),
+      file_path: f.path,
+    });
+  }
+
+  return entries;
+}
+
+module.exports = { resolve, read, list, search };

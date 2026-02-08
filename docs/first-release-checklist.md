@@ -1,14 +1,14 @@
-# First Public Release Checklist (v0.2.0)
+# First Public Release Checklist (v0.3.0)
 
 ## Scope Lock
-- Protocol version is `v0.2.0`.
+- Protocol version is `v0.3.0`.
 - Node and Rust command surfaces are parity-locked for `read`, `compare`, `report`.
 - Shared schemas are final for this release.
 
 ## Preflight (Local)
 1. Verify versions match:
 ```bash
-bash scripts/release/verify_versions.sh v0.2.0
+bash scripts/release/verify_versions.sh v0.3.0
 ```
 2. Run parity tests:
 ```bash
@@ -29,16 +29,16 @@ bash scripts/validate_schemas.sh
 ## Release Steps
 1. Create and push tag:
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.3.0
+git push origin v0.3.0
 ```
 2. Watch `Release` workflow.
 3. Verify artifacts:
 - npm tarball artifact uploaded
 - Linux/macOS Rust binaries uploaded
 4. Verify publishes (if secrets configured):
-- npm package `inter-agent-bridge-cli`
-- crates.io package `bridge-cli`
+- npm package `agent-bridge`
+- crates.io package `agent-bridge`
 
 ## Post-Release Validation
 - Install from npm and run:

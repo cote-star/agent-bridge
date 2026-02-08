@@ -111,13 +111,65 @@ function list(cwd, limit) {
   limit = limit || 10;
   if (!fs.existsSync(claudeProjectsBase)) return [];
   const files = collectMatchingFiles(claudeProjectsBase, (_fp, name) => name.endsWith('.jsonl'), true);
-  return files.slice(0, limit).map(f => ({
-    session_id: path.basename(f.path, path.extname(f.path)),
-    agent: 'claude',
-    cwd: getClaudeSessionCwd(f.path) || null,
-    modified_at: getFileTimestamp(f.path),
-    file_path: f.path,
-  }));
+  const expectedCwd = cwd ? normalizePath(cwd) : null;
+  const entries = [];
+  for (const f of files) {
+    const fileCwd = getClaudeSessionCwd(f.path) || null;
+    if (expectedCwd && fileCwd !== expectedCwd) {
+      continue;
+    }
+
+    entries.push({
+      session_id: path.basename(f.path, path.extname(f.path)),
+      agent: 'claude',
+      cwd: fileCwd,
+      modified_at: getFileTimestamp(f.path),
+      file_path: f.path,
+    });
+
+    if (entries.length >= limit) break;
+  }
+  return entries;
 }
 
-module.exports = { resolve, read, list };
+function search(query, cwd, limit) {
+  limit = limit || 10;
+  const expectedCwd = cwd ? normalizePath(cwd) : null;
+  const queryLower = String(query || '').toLowerCase();
+  if (!fs.existsSync(claudeProjectsBase)) return [];
+
+  const files = collectMatchingFiles(claudeProjectsBase, (_fp, name) => name.endsWith('.jsonl'), true);
+  const entries = [];
+
+  for (const f of files) {
+    if (entries.length >= limit) break;
+
+    const fileCwd = getClaudeSessionCwd(f.path) || null;
+    if (expectedCwd && fileCwd !== expectedCwd) {
+      continue;
+    }
+
+    let content;
+    try {
+      content = fs.readFileSync(f.path, 'utf-8');
+    } catch (error) {
+      continue;
+    }
+
+    if (!content.toLowerCase().includes(queryLower)) {
+      continue;
+    }
+
+    entries.push({
+      session_id: path.basename(f.path, path.extname(f.path)),
+      agent: 'claude',
+      cwd: fileCwd,
+      modified_at: getFileTimestamp(f.path),
+      file_path: f.path,
+    });
+  }
+
+  return entries;
+}
+
+module.exports = { resolve, read, list, search };

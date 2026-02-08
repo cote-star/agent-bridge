@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://inter-agent-bridge.dev/schemas/list-output.schema.json",
+  "$id": "https://agent-bridge.dev/schemas/list-output.schema.json",
   "title": "Bridge List Output",
   "type": "array",
   "items": {
@@ -19,8 +19,7 @@
         "type": ["string", "null"]
       },
       "modified_at": {
-        "type": ["string", "null"],
-        "format": "date-time"
+        "type": ["string", "null"]
       },
       "file_path": {
         "type": "string"

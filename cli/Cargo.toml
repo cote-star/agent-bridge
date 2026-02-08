@@ -1,8 +1,8 @@
 [package]
-name = "bridge-cli"
+name = "agent-bridge"
 version = "0.3.0"
 edition = "2021"
-description = "Inter-Agent Bridge Rust CLI reference implementation"
+description = "Agent Bridge Rust CLI reference implementation"
 license = "MIT"
 repository = "https://github.com/cote-star/agent-bridge"
 keywords = ["cli", "agents", "protocol", "codex", "gemini"]

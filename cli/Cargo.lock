@@ -3,6 +3,17 @@
 version = 4
 
 [[package]]
+name = "agent-bridge"
+version = "0.3.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "dirs",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "anstream"
 version = "0.6.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -71,17 +82,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71"
 dependencies = [
  "generic-array",
-]
-
-[[package]]
-name = "bridge-cli"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "clap",
- "dirs",
- "serde_json",
- "sha2",
 ]
 
 [[package]]

@@ -1,5 +1,5 @@
 {
-  "name": "inter-agent-bridge-cli",
+  "name": "agent-bridge",
   "version": "0.3.0",
   "private": false,
   "type": "commonjs",

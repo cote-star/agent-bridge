@@ -1,10 +1,10 @@
-# Inter-Agent Bridge
+# Agent Bridge
 
 ![CI Status](https://github.com/cote-star/agent-bridge/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-0.3.0-green.svg)
 
-**Inter-Agent Bridge** is a lightweight local protocol and reference implementation for reading cross-agent session context. It enables AI agents (Codex, Gemini, Claude, Cursor) to "read" each other's conversation history from local storage, facilitating coordination, verification, and steering without a centralized cloud service.
+**Agent Bridge** is a lightweight local protocol and reference implementation for reading cross-agent session context. It enables AI agents (Codex, Gemini, Claude, Cursor) to read each other's conversation history from local storage, facilitating coordination, verification, and steering without a centralized cloud service.
 
 ## Key Tenets
 
@@ -15,7 +15,7 @@
 
 ## Demo
 
-![Inter-Agent Bridge Demo](docs/demo.webp)
+![Agent Bridge Demo](docs/demo.webp)
 
 ## Architecture
 
@@ -58,14 +58,14 @@ Install the CLI tool globally to use it from your terminal.
 **Node.js**:
 
 ```bash
-npm install -g inter-agent-bridge-cli
+npm install -g agent-bridge
 bridge-node read --agent=codex --json
 ```
 
 **Rust (Recommended for Performance)**:
 
 ```bash
-cargo install bridge-cli
+cargo install agent-bridge
 bridge read --agent codex --json
 ```
 
@@ -76,7 +76,7 @@ Clone the repository to build from source.
 **Node**:
 
 ```bash
-npm install
+npm ci
 node scripts/read_session.cjs read --agent=codex
 ```
 
@@ -89,6 +89,16 @@ cargo run --manifest-path cli/Cargo.toml -- read --agent codex
 ## Usage
 
 > **Note**: The examples below use the `bridge` command. If you installed via Node.js (`npm`), the binary is named `bridge-node`. You can either alias it (`alias bridge=bridge-node`) or substitute `bridge-node` in the commands.
+
+### Protocol-Accurate Command Contract
+
+```bash
+bridge read --agent <codex|gemini|claude|cursor> [--id=<substring>] [--cwd=<path>] [--chats-dir=<path>] [--last=<N>] [--json]
+bridge compare --source <agent[:session-substring]>... [--cwd=<path>] [--normalize] [--json]
+bridge report --handoff <handoff.json> [--cwd=<path>] [--json]
+bridge list --agent <codex|gemini|claude|cursor> [--cwd=<path>] [--limit=<N>] [--json]
+bridge search <query> --agent <codex|gemini|claude|cursor> [--cwd=<path>] [--limit=<N>] [--json]
+```
 
 ### Reading a Session
 
@@ -158,7 +168,7 @@ bridge list --agent codex --cwd /path/to/project --json
 ]
 ```
 
-### Searching Sessions (Rust CLI)
+### Searching Sessions
 
 Search session contents by keyword.
 
@@ -293,7 +303,7 @@ Run the full test suite:
 
 ```bash
 # Install dependencies
-npm install
+npm ci
 
 # Cross-implementation conformance (Node vs Rust parity + golden file diffs)
 bash scripts/conformance.sh

@@ -46,6 +46,11 @@ function canonicalize(value, key) {
     return null;
   }
 
+  // Strip modified_at precision differences between runtimes
+  if (key === 'modified_at') {
+    return null;
+  }
+
   // Strip file_path for golden file comparison
   if (key === 'file_path' && typeof value === 'string') {
     return path.basename(value);

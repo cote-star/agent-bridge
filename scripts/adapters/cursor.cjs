@@ -94,13 +94,73 @@ function list(cwd, limit) {
   if (!fs.existsSync(workspacesDir)) return [];
 
   const files = collectMatchingFiles(workspacesDir, (_fp, name) => isCursorFile(name), true);
-  return files.slice(0, limit).map(f => ({
-    session_id: path.basename(f.path, path.extname(f.path)),
-    agent: 'cursor',
-    cwd: null,
-    modified_at: getFileTimestamp(f.path),
-    file_path: f.path,
-  }));
+  const expectedCwd = cwd ? normalizePath(cwd).toLowerCase() : null;
+  const entries = [];
+  for (const f of files) {
+    if (entries.length >= limit) break;
+
+    if (expectedCwd) {
+      let raw;
+      try {
+        raw = fs.readFileSync(f.path, 'utf-8');
+      } catch (error) {
+        continue;
+      }
+      if (!raw.toLowerCase().includes(expectedCwd)) {
+        continue;
+      }
+    }
+
+    entries.push({
+      session_id: path.basename(f.path, path.extname(f.path)),
+      agent: 'cursor',
+      cwd: null,
+      modified_at: getFileTimestamp(f.path),
+      file_path: f.path,
+    });
+  }
+
+  return entries;
 }
 
-module.exports = { resolve, read, list };
+function search(query, cwd, limit) {
+  limit = limit || 10;
+  const queryLower = String(query || '').toLowerCase();
+  const expectedCwd = cwd ? normalizePath(cwd).toLowerCase() : null;
+  if (!fs.existsSync(cursorDataBase)) return [];
+  const workspacesDir = getWorkspacesDir();
+  if (!fs.existsSync(workspacesDir)) return [];
+
+  const files = collectMatchingFiles(workspacesDir, (_fp, name) => isCursorFile(name), true);
+  const entries = [];
+
+  for (const f of files) {
+    if (entries.length >= limit) break;
+
+    let raw;
+    try {
+      raw = fs.readFileSync(f.path, 'utf-8');
+    } catch (error) {
+      continue;
+    }
+    const lower = raw.toLowerCase();
+    if (expectedCwd && !lower.includes(expectedCwd)) {
+      continue;
+    }
+    if (!lower.includes(queryLower)) {
+      continue;
+    }
+
+    entries.push({
+      session_id: path.basename(f.path, path.extname(f.path)),
+      agent: 'cursor',
+      cwd: null,
+      modified_at: getFileTimestamp(f.path),
+      file_path: f.path,
+    });
+  }
+
+  return entries;
+}
+
+module.exports = { resolve, read, list, search };

@@ -10,7 +10,7 @@ Show that Node and Rust implementations are interchangeable, conformant, and lig
 
 ### 0:00-0:30 Intro
 - Show repo and one-line value proposition.
-- Say: "Inter-Agent Bridge is a protocol-first toolkit for comparing agent session outputs with traceable evidence tags."
+- Say: "Agent Bridge is a protocol-first toolkit for comparing agent session outputs with traceable evidence tags."
 
 ### 0:30-1:30 Read Command (Parity)
 - Run Node:

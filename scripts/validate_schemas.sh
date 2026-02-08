@@ -12,6 +12,12 @@ report_node_json="$TMP_DIR/report-node.json"
 report_rust_json="$TMP_DIR/report-rust.json"
 compare_node_json="$TMP_DIR/compare-node.json"
 compare_rust_json="$TMP_DIR/compare-rust.json"
+list_node_json="$TMP_DIR/list-node.json"
+list_rust_json="$TMP_DIR/list-rust.json"
+search_node_json="$TMP_DIR/search-node.json"
+search_rust_json="$TMP_DIR/search-rust.json"
+error_node_json="$TMP_DIR/error-node.json"
+error_rust_json="$TMP_DIR/error-rust.json"
 
 BRIDGE_CODEX_SESSIONS_DIR="$STORE/codex/sessions" \
 BRIDGE_GEMINI_TMP_DIR="$STORE/gemini/tmp" \
@@ -51,6 +57,42 @@ cargo run --quiet --manifest-path "$ROOT/cli/Cargo.toml" -- compare \
   --source claude:claude-fixture \
   --json > "$compare_rust_json"
 
+BRIDGE_CODEX_SESSIONS_DIR="$STORE/codex/sessions" \
+BRIDGE_GEMINI_TMP_DIR="$STORE/gemini/tmp" \
+BRIDGE_CLAUDE_PROJECTS_DIR="$STORE/claude/projects" \
+node "$ROOT/scripts/read_session.cjs" list --agent=codex --cwd=/workspace/demo --json > "$list_node_json"
+
+BRIDGE_CODEX_SESSIONS_DIR="$STORE/codex/sessions" \
+BRIDGE_GEMINI_TMP_DIR="$STORE/gemini/tmp" \
+BRIDGE_CLAUDE_PROJECTS_DIR="$STORE/claude/projects" \
+cargo run --quiet --manifest-path "$ROOT/cli/Cargo.toml" -- list --agent codex --cwd /workspace/demo --json > "$list_rust_json"
+
+BRIDGE_CODEX_SESSIONS_DIR="$STORE/codex/sessions" \
+BRIDGE_GEMINI_TMP_DIR="$STORE/gemini/tmp" \
+BRIDGE_CLAUDE_PROJECTS_DIR="$STORE/claude/projects" \
+node "$ROOT/scripts/read_session.cjs" search "Codex fixture assistant output." --agent=codex --cwd=/workspace/demo --json > "$search_node_json"
+
+BRIDGE_CODEX_SESSIONS_DIR="$STORE/codex/sessions" \
+BRIDGE_GEMINI_TMP_DIR="$STORE/gemini/tmp" \
+BRIDGE_CLAUDE_PROJECTS_DIR="$STORE/claude/projects" \
+cargo run --quiet --manifest-path "$ROOT/cli/Cargo.toml" -- search "Codex fixture assistant output." --agent codex --cwd /workspace/demo --json > "$search_rust_json"
+
+if BRIDGE_CODEX_SESSIONS_DIR="$STORE/codex/sessions" \
+  BRIDGE_GEMINI_TMP_DIR="$STORE/gemini/tmp" \
+  BRIDGE_CLAUDE_PROJECTS_DIR="$STORE/claude/projects" \
+  node "$ROOT/scripts/read_session.cjs" read --agent=invalid-agent --json > "$error_node_json" 2>/dev/null; then
+  echo "Expected node invalid-agent call to fail" >&2
+  exit 1
+fi
+
+if BRIDGE_CODEX_SESSIONS_DIR="$STORE/codex/sessions" \
+  BRIDGE_GEMINI_TMP_DIR="$STORE/gemini/tmp" \
+  BRIDGE_CLAUDE_PROJECTS_DIR="$STORE/claude/projects" \
+  cargo run --quiet --manifest-path "$ROOT/cli/Cargo.toml" -- read --agent invalid-agent --json > "$error_rust_json" 2>/dev/null; then
+  echo "Expected rust invalid-agent call to fail" >&2
+  exit 1
+fi
+
 if [[ "${BRIDGE_SKIP_AJV:-0}" == "1" ]]; then
   node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));" "$read_node_json"
   node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));" "$read_rust_json"
@@ -58,6 +100,12 @@ if [[ "${BRIDGE_SKIP_AJV:-0}" == "1" ]]; then
   node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));" "$report_rust_json"
   node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));" "$compare_node_json"
   node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));" "$compare_rust_json"
+  node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));" "$list_node_json"
+  node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));" "$list_rust_json"
+  node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));" "$search_node_json"
+  node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));" "$search_rust_json"
+  node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));" "$error_node_json"
+  node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));" "$error_rust_json"
   echo "Schema validation skipped (BRIDGE_SKIP_AJV=1); JSON parse sanity checks passed."
   exit 0
 fi
@@ -73,5 +121,11 @@ AJV_CMD=(npx ajv-cli validate --spec=draft2020)
 "${AJV_CMD[@]}" -s "$ROOT/schemas/report.schema.json" -d "$report_rust_json"
 "${AJV_CMD[@]}" -s "$ROOT/schemas/report.schema.json" -d "$compare_node_json"
 "${AJV_CMD[@]}" -s "$ROOT/schemas/report.schema.json" -d "$compare_rust_json"
+"${AJV_CMD[@]}" -s "$ROOT/schemas/list-output.schema.json" -d "$list_node_json"
+"${AJV_CMD[@]}" -s "$ROOT/schemas/list-output.schema.json" -d "$list_rust_json"
+"${AJV_CMD[@]}" -s "$ROOT/schemas/list-output.schema.json" -d "$search_node_json"
+"${AJV_CMD[@]}" -s "$ROOT/schemas/list-output.schema.json" -d "$search_rust_json"
+"${AJV_CMD[@]}" -s "$ROOT/schemas/error.schema.json" -d "$error_node_json"
+"${AJV_CMD[@]}" -s "$ROOT/schemas/error.schema.json" -d "$error_rust_json"
 
-echo "Schema validation complete for handoff/read/report outputs."
+echo "Schema validation complete for handoff/read/report/list/search/error outputs."

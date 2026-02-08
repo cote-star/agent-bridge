@@ -1,4 +1,4 @@
-# Inter-Agent Bridge Test Prompt Suite
+# Agent Bridge Test Prompt Suite
 
 Use these prompts to validate behavior quality across modes and failure conditions.
 
@@ -25,7 +25,7 @@ Sources:
 Constraints:
 - Keep API backwards compatible
 - No new external dependencies
-Return using the Universal Inter-Agent Coordinator Protocol.
+Return using the Universal Agent Bridge Coordinator Protocol.
 ```
 
 ## Prompt 2: Steer Conflicting Plans

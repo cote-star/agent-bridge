@@ -1,4 +1,5 @@
-use crate::agents::{read_claude_session, read_codex_session, read_gemini_session, Session};
+use crate::adapters;
+use crate::agents::Session;
 use anyhow::{anyhow, Context, Result};
 use serde_json::{json, Value};
 use std::collections::HashSet;
@@ -238,7 +239,7 @@ pub fn build_report(request: &ReportRequest, default_cwd: &str) -> Value {
 
 pub fn report_to_markdown(report: &Value) -> String {
     let mut lines = Vec::new();
-    lines.push("### Inter-Agent Coordinator Report".to_string());
+    lines.push("### Agent Bridge Coordinator Report".to_string());
     lines.push(String::new());
     lines.push(format!("**Mode:** {}", report["mode"].as_str().unwrap_or("unknown")));
     lines.push(format!("**Task:** {}", report["task"].as_str().unwrap_or("")));
@@ -312,13 +313,9 @@ fn normalize_content(text: &str) -> String {
 
 fn read_source(source: &SourceSpec, default_cwd: &str) -> Result<Session> {
     let cwd = source.cwd.as_deref().unwrap_or(default_cwd);
-    match source.agent.as_str() {
-        "codex" => read_codex_session(source.session_id.as_deref(), cwd),
-        "gemini" => read_gemini_session(source.session_id.as_deref(), cwd, source.chats_dir.as_deref()),
-        "claude" => read_claude_session(source.session_id.as_deref(), cwd),
-        "cursor" => crate::agents::read_cursor_session(source.session_id.as_deref(), cwd),
-        _ => Err(anyhow!("Unsupported agent: {}", source.agent)),
-    }
+    let adapter = adapters::get_adapter(&source.agent)
+        .ok_or_else(|| anyhow!("Unsupported agent: {}", source.agent))?;
+    adapter.read_session(source.session_id.as_deref(), cwd, source.chats_dir.as_deref(), 1)
 }
 
 fn evidence_tag(source: &SourceSpec) -> String {

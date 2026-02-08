@@ -1,0 +1,9 @@
+[
+  {
+    "session_id": "session-codex-fixture-0001",
+    "agent": "codex",
+    "cwd": "/workspace/demo",
+    "modified_at": "2026-02-08T08:34:50.021Z",
+    "file_path": "/tmp/session-codex-fixture-0001.jsonl"
+  }
+]

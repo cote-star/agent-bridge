@@ -1,6 +1,6 @@
-# Inter-Agent Bridge Explainer
+# Agent Bridge Explainer
 
-Inter-Agent Bridge standardizes how one agent reads and evaluates outputs from other agents. It separates concerns into:
+Agent Bridge standardizes how one agent reads and evaluates outputs from other agents. It separates concerns into:
 
 1. Protocol: contract for modes, evidence tags, and report structure.
 2. Implementations: Node and Rust CLIs that follow the same behavior.
@@ -19,6 +19,8 @@ Without a protocol, cross-agent reviews drift into ad hoc summaries. This projec
 - `read`: pull the latest or targeted source turn.
 - `compare`: generate an analyze-mode report across sources.
 - `report`: generate mode-specific report from a handoff packet.
+- `list`: enumerate recent sessions for an agent (with optional cwd scoping).
+- `search`: find sessions containing a keyword (with optional cwd scoping).
 
 ## Safety
 Returned content is redacted for likely secrets (API keys, bearer tokens, key-value credentials).

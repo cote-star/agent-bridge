@@ -1,9 +1,9 @@
 ---
-name: inter-agent-bridge
+name: agent-bridge
 description: Bridge CLI session context across Codex, Gemini, and Claude for verification, steering, analysis, and feedback. Trigger for prompts like "what's Claude doing", "what did Gemini/Codex say", "check other window output", "read previous session", "compare agent outputs", or when a session UUID is provided.
 ---
 
-# Inter-Agent Bridge
+# Agent Bridge
 
 This skill helps one agent evaluate and steer other agents by sharing CLI session context and enforcing a common review protocol.
 

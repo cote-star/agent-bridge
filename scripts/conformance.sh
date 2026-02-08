@@ -95,10 +95,65 @@ run_report_case() {
   fi
 }
 
+run_list_case() {
+  local agent="$1"
+  local label="$2"
+  local cwd="$3"
+
+  local node_out="$TMP_DIR/list-${agent}-node.json"
+  local rust_out="$TMP_DIR/list-${agent}-rust.json"
+
+  BRIDGE_CODEX_SESSIONS_DIR="$STORE/codex/sessions" \
+  BRIDGE_GEMINI_TMP_DIR="$STORE/gemini/tmp" \
+  BRIDGE_CLAUDE_PROJECTS_DIR="$STORE/claude/projects" \
+  node "$ROOT/scripts/read_session.cjs" list --agent="$agent" --cwd="$cwd" --json > "$node_out"
+
+  BRIDGE_CODEX_SESSIONS_DIR="$STORE/codex/sessions" \
+  BRIDGE_GEMINI_TMP_DIR="$STORE/gemini/tmp" \
+  BRIDGE_CLAUDE_PROJECTS_DIR="$STORE/claude/projects" \
+  cargo run --quiet --manifest-path "$ROOT/cli/Cargo.toml" -- list --agent "$agent" --cwd "$cwd" --json > "$rust_out"
+
+  node "$ROOT/scripts/compare_read_output.cjs" "$node_out" "$rust_out" "list-${label}"
+
+  local golden_file="$GOLDEN/list-${agent}.json"
+  if [[ -f "$golden_file" ]]; then
+    node "$ROOT/scripts/compare_read_output.cjs" "$node_out" "$golden_file" "golden-list-${label}"
+  fi
+}
+
+run_search_case() {
+  local agent="$1"
+  local label="$2"
+  local query="$3"
+  local cwd="$4"
+
+  local node_out="$TMP_DIR/search-${agent}-node.json"
+  local rust_out="$TMP_DIR/search-${agent}-rust.json"
+
+  BRIDGE_CODEX_SESSIONS_DIR="$STORE/codex/sessions" \
+  BRIDGE_GEMINI_TMP_DIR="$STORE/gemini/tmp" \
+  BRIDGE_CLAUDE_PROJECTS_DIR="$STORE/claude/projects" \
+  node "$ROOT/scripts/read_session.cjs" search "$query" --agent="$agent" --cwd="$cwd" --json > "$node_out"
+
+  BRIDGE_CODEX_SESSIONS_DIR="$STORE/codex/sessions" \
+  BRIDGE_GEMINI_TMP_DIR="$STORE/gemini/tmp" \
+  BRIDGE_CLAUDE_PROJECTS_DIR="$STORE/claude/projects" \
+  cargo run --quiet --manifest-path "$ROOT/cli/Cargo.toml" -- search "$query" --agent "$agent" --cwd "$cwd" --json > "$rust_out"
+
+  node "$ROOT/scripts/compare_read_output.cjs" "$node_out" "$rust_out" "search-${label}"
+
+  local golden_file="$GOLDEN/search-${agent}.json"
+  if [[ -f "$golden_file" ]]; then
+    node "$ROOT/scripts/compare_read_output.cjs" "$node_out" "$golden_file" "golden-search-${label}"
+  fi
+}
+
 run_read_case codex codex-fixture Codex
 run_read_case gemini gemini-fixture Gemini
 run_read_case claude claude-fixture Claude
 run_compare_case
 run_report_case
+run_list_case codex Codex /workspace/demo
+run_search_case codex Codex "Codex fixture assistant output." /workspace/demo
 
-echo "Conformance complete: Node and Rust outputs match for read/compare/report (including golden file diffs)."
+echo "Conformance complete: Node and Rust outputs match for read/compare/report/list/search (including golden file diffs)."

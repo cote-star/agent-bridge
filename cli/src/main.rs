@@ -9,7 +9,7 @@ use serde_json::json;
 
 #[derive(Parser)]
 #[command(name = "bridge")]
-#[command(about = "Inter-Agent Bridge CLI", long_about = None)]
+#[command(about = "Agent Bridge CLI", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -129,6 +129,17 @@ enum AgentType {
     Cursor,
 }
 
+impl AgentType {
+    fn as_str(&self) -> &'static str {
+        match self {
+            AgentType::Codex => "codex",
+            AgentType::Gemini => "gemini",
+            AgentType::Claude => "claude",
+            AgentType::Cursor => "cursor",
+        }
+    }
+}
+
 fn main() {
     let cli = match Cli::try_parse() {
         Ok(c) => c,
@@ -195,14 +206,14 @@ fn run(cli: Cli) -> Result<()> {
         } => {
             let effective_cwd = effective_cwd(cwd);
             let last_n = last.max(1);
-            let session = match agent {
-                AgentType::Codex => agents::read_codex_session_with_last(id.as_deref(), &effective_cwd, last_n)?,
-                AgentType::Gemini => {
-                    agents::read_gemini_session_with_last(id.as_deref(), &effective_cwd, chats_dir.as_deref(), last_n)?
-                }
-                AgentType::Claude => agents::read_claude_session_with_last(id.as_deref(), &effective_cwd, last_n)?,
-                AgentType::Cursor => agents::read_cursor_session(id.as_deref(), &effective_cwd)?,
-            };
+            let adapter = adapters::get_adapter(agent.as_str())
+                .with_context(|| format!("Unsupported agent: {}", agent.as_str()))?;
+            let session = adapter.read_session(
+                id.as_deref(),
+                &effective_cwd,
+                chats_dir.as_deref(),
+                last_n,
+            )?;
 
             if json {
                 let report = json!({
@@ -256,13 +267,14 @@ fn run(cli: Cli) -> Result<()> {
             emit_report_output(&result, json)?;
         }
         Commands::List { agent, cwd, limit, json } => {
-            let effective_cwd = effective_cwd(cwd);
-            let entries = match agent {
-                AgentType::Codex => agents::list_codex_sessions(&effective_cwd, limit)?,
-                AgentType::Gemini => agents::list_gemini_sessions(&effective_cwd, limit)?,
-                AgentType::Claude => agents::list_claude_sessions(&effective_cwd, limit)?,
-                AgentType::Cursor => agents::list_cursor_sessions(&effective_cwd, limit)?,
-            };
+            let normalized_cwd = cwd.map(|value| {
+                utils::normalize_path(&value)
+                    .map(|path| path.to_string_lossy().to_string())
+                    .unwrap_or(value)
+            });
+            let adapter = adapters::get_adapter(agent.as_str())
+                .with_context(|| format!("Unsupported agent: {}", agent.as_str()))?;
+            let entries = adapter.list_sessions(normalized_cwd.as_deref(), limit)?;
 
             if json {
                 println!("{}", serde_json::to_string_pretty(&entries)?);
@@ -273,13 +285,14 @@ fn run(cli: Cli) -> Result<()> {
             }
         }
         Commands::Search { query, agent, cwd, limit, json } => {
-            let effective_cwd = effective_cwd(cwd);
-            let entries = match agent {
-                AgentType::Codex => agents::search_codex_sessions(&query, &effective_cwd, limit)?,
-                AgentType::Gemini => agents::search_gemini_sessions(&query, &effective_cwd, limit)?,
-                AgentType::Claude => agents::search_claude_sessions(&query, &effective_cwd, limit)?,
-                AgentType::Cursor => agents::search_cursor_sessions(&query, &effective_cwd, limit)?,
-            };
+            let normalized_cwd = cwd.map(|value| {
+                utils::normalize_path(&value)
+                    .map(|path| path.to_string_lossy().to_string())
+                    .unwrap_or(value)
+            });
+            let adapter = adapters::get_adapter(agent.as_str())
+                .with_context(|| format!("Unsupported agent: {}", agent.as_str()))?;
+            let entries = adapter.search_sessions(&query, normalized_cwd.as_deref(), limit)?;
 
             if json {
                 println!("{}", serde_json::to_string_pretty(&entries)?);

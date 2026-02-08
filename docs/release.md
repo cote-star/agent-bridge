@@ -31,7 +31,7 @@ Triggered by pushing a version tag.
 ## Manual Publish Commands
 Version parity check:
 ```bash
-bash scripts/release/verify_versions.sh v0.2.0
+bash scripts/release/verify_versions.sh v0.3.0
 ```
 
 Node:
@@ -45,17 +45,17 @@ cargo publish --manifest-path cli/Cargo.toml
 ```
 
 ## First Release Plan
-Follow `docs/first-release-checklist.md` for the v0.2.0 public launch sequence.
+Follow `docs/first-release-checklist.md` for the v0.3.0 public launch sequence.
 
 ## Install Commands
 Node CLI from npm:
 ```bash
-npm install -g inter-agent-bridge-cli
+npm install -g agent-bridge
 bridge-node read --agent=codex --json
 ```
 
 Rust CLI from crates.io:
 ```bash
-cargo install bridge-cli
+cargo install agent-bridge
 bridge read --agent codex --json
 ```
