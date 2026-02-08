@@ -1,0 +1,361 @@
+use crate::agents::{read_claude_session, read_codex_session, read_gemini_session, Session};
+use anyhow::{anyhow, Context, Result};
+use serde_json::{json, Value};
+use std::collections::HashSet;
+
+#[derive(Clone, Debug)]
+pub struct SourceSpec {
+    pub agent: String,
+    pub session_id: Option<String>,
+    pub current_session: bool,
+    pub cwd: Option<String>,
+    pub chats_dir: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct ReportRequest {
+    pub mode: String,
+    pub task: String,
+    pub success_criteria: Vec<String>,
+    pub sources: Vec<SourceSpec>,
+    pub constraints: Vec<String>,
+}
+
+pub fn parse_source_arg(raw: &str) -> Result<SourceSpec> {
+    let mut parts = raw.splitn(2, ':');
+    let agent = parts.next().unwrap_or("").trim().to_ascii_lowercase();
+    let session_id = parts.next().map(|v| v.trim().to_string()).filter(|v| !v.is_empty());
+
+    validate_agent(&agent)?;
+
+    Ok(SourceSpec {
+        agent,
+        session_id: session_id.clone(),
+        current_session: session_id.is_none(),
+        cwd: None,
+        chats_dir: None,
+    })
+}
+
+pub fn load_handoff(path: &str) -> Result<ReportRequest> {
+    let raw = std::fs::read_to_string(path).with_context(|| format!("Failed to read handoff file: {}", path))?;
+    let root: Value = serde_json::from_str(&raw).with_context(|| format!("Failed to parse handoff JSON: {}", path))?;
+
+    let mode = root["mode"]
+        .as_str()
+        .map(|v| v.to_ascii_lowercase())
+        .context("Handoff is missing required string field: mode")?;
+    validate_mode(&mode)?;
+
+    let task = root["task"]
+        .as_str()
+        .map(|v| v.to_string())
+        .context("Handoff is missing required string field: task")?;
+
+    let success_criteria = root["success_criteria"]
+        .as_array()
+        .context("Handoff is missing required array field: success_criteria")?
+        .iter()
+        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+        .collect::<Vec<String>>();
+    if success_criteria.is_empty() {
+        return Err(anyhow!("Handoff success_criteria must contain at least one string"));
+    }
+
+    let mut sources = Vec::new();
+    for source in root["sources"]
+        .as_array()
+        .context("Handoff is missing required array field: sources")?
+    {
+        let agent = source["agent"]
+            .as_str()
+            .map(|v| v.to_ascii_lowercase())
+            .context("Each source must include string field: agent")?;
+        validate_agent(&agent)?;
+
+        let session_id = source
+            .get("session_id")
+            .and_then(|v| v.as_str())
+            .map(|v| v.to_string());
+        let current_session = source
+            .get("current_session")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
+        if session_id.is_none() && !current_session {
+            return Err(anyhow!(
+                "Each source must provide session_id or set current_session=true"
+            ));
+        }
+
+        let cwd = source
+            .get("cwd")
+            .and_then(|v| v.as_str())
+            .map(|v| v.to_string());
+
+        sources.push(SourceSpec {
+            agent,
+            session_id,
+            current_session,
+            cwd,
+            chats_dir: None,
+        });
+    }
+
+    let constraints = root
+        .get("constraints")
+        .and_then(|v| v.as_array())
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect::<Vec<String>>()
+        })
+        .unwrap_or_default();
+
+    Ok(ReportRequest {
+        mode,
+        task,
+        success_criteria,
+        sources,
+        constraints,
+    })
+}
+
+pub fn build_report(request: &ReportRequest, default_cwd: &str) -> Value {
+    let mut successful: Vec<(SourceSpec, Session, String)> = Vec::new();
+    let mut missing: Vec<(SourceSpec, String, String)> = Vec::new();
+
+    for source in &request.sources {
+        let evidence = evidence_tag(source);
+        match read_source(source, default_cwd) {
+            Ok(session) => successful.push((source.clone(), session, evidence)),
+            Err(error) => missing.push((source.clone(), error.to_string(), evidence)),
+        }
+    }
+
+    let mut findings: Vec<Value> = Vec::new();
+
+    for (source, error, evidence) in &missing {
+        findings.push(json!({
+            "severity": "P1",
+            "summary": format!("Source unavailable: {} ({})", source.agent, error),
+            "evidence": [evidence],
+            "confidence": 0.9
+        }));
+    }
+
+    for (_, session, evidence) in &successful {
+        for warning in &session.warnings {
+            findings.push(json!({
+                "severity": "P2",
+                "summary": format!("Source warning: {}", warning),
+                "evidence": [evidence],
+                "confidence": 0.75
+            }));
+        }
+    }
+
+    let unique_contents: HashSet<String> = successful
+        .iter()
+        .map(|(_, session, _)| session.content.trim().to_string())
+        .collect();
+
+    if successful.len() >= 2 {
+        if unique_contents.len() > 1 {
+            findings.push(json!({
+                "severity": "P1",
+                "summary": "Divergent agent outputs detected",
+                "evidence": successful.iter().map(|(_, _, tag)| tag.clone()).collect::<Vec<String>>(),
+                "confidence": 0.75
+            }));
+        } else {
+            findings.push(json!({
+                "severity": "P3",
+                "summary": "All available agent outputs are aligned",
+                "evidence": successful.iter().map(|(_, _, tag)| tag.clone()).collect::<Vec<String>>(),
+                "confidence": 0.9
+            }));
+        }
+    } else {
+        findings.push(json!({
+            "severity": "P2",
+            "summary": "Insufficient comparable sources",
+            "evidence": successful.iter().map(|(_, _, tag)| tag.clone()).collect::<Vec<String>>(),
+            "confidence": 0.5
+        }));
+    }
+
+    let mut recommended_next_actions = Vec::new();
+    if !missing.is_empty() {
+        recommended_next_actions
+            .push("Provide valid session identifiers or cwd values for unavailable sources.".to_string());
+    }
+    if unique_contents.len() > 1 {
+        recommended_next_actions
+            .push("Inspect full transcripts for diverging sources before final decisions.".to_string());
+    }
+    if !request.constraints.is_empty() {
+        recommended_next_actions.push(format!(
+            "Verify recommendations against constraints: {}.",
+            request.constraints.join("; ")
+        ));
+    }
+    if recommended_next_actions.is_empty() {
+        recommended_next_actions.push("No immediate action required.".to_string());
+    }
+
+    let open_questions = missing
+        .iter()
+        .map(|(source, error, _)| format!("Missing source {}: {}", source.agent, error))
+        .collect::<Vec<String>>();
+
+    let verdict = compute_verdict(&request.mode, &missing, unique_contents.len(), successful.len());
+
+    json!({
+        "mode": request.mode,
+        "task": request.task,
+        "success_criteria": request.success_criteria,
+        "sources_used": successful
+            .iter()
+            .map(|(_, session, evidence)| format!("{} {}", evidence, session.source))
+            .collect::<Vec<String>>(),
+        "verdict": verdict,
+        "findings": findings,
+        "recommended_next_actions": recommended_next_actions,
+        "open_questions": open_questions,
+    })
+}
+
+pub fn report_to_markdown(report: &Value) -> String {
+    let mut lines = Vec::new();
+    lines.push("### Inter-Agent Coordinator Report".to_string());
+    lines.push(String::new());
+    lines.push(format!("**Mode:** {}", report["mode"].as_str().unwrap_or("unknown")));
+    lines.push(format!("**Task:** {}", report["task"].as_str().unwrap_or("")));
+    lines.push("**Success Criteria:**".to_string());
+
+    if let Some(criteria) = report["success_criteria"].as_array() {
+        for criterion in criteria {
+            lines.push(format!("- {}", criterion.as_str().unwrap_or("")));
+        }
+    }
+
+    lines.push(String::new());
+    lines.push("**Sources Used:**".to_string());
+    if let Some(sources) = report["sources_used"].as_array() {
+        for source in sources {
+            lines.push(format!("- {}", source.as_str().unwrap_or("")));
+        }
+    }
+
+    lines.push(String::new());
+    lines.push(format!("**Verdict:** {}", report["verdict"].as_str().unwrap_or("")));
+    lines.push(String::new());
+    lines.push("**Findings:**".to_string());
+
+    if let Some(findings) = report["findings"].as_array() {
+        for finding in findings {
+            let severity = finding["severity"].as_str().unwrap_or("P2");
+            let summary = finding["summary"].as_str().unwrap_or("");
+            let confidence = finding["confidence"].as_f64().unwrap_or(0.0);
+            let evidence = finding["evidence"]
+                .as_array()
+                .map(|values| {
+                    values
+                        .iter()
+                        .filter_map(|v| v.as_str())
+                        .collect::<Vec<&str>>()
+                        .join(", ")
+                })
+                .unwrap_or_default();
+            lines.push(format!(
+                "- **{}:** {} (evidence: {}; confidence: {:.2})",
+                severity, summary, evidence, confidence
+            ));
+        }
+    }
+
+    lines.push(String::new());
+    lines.push("**Recommended Next Actions:**".to_string());
+    if let Some(actions) = report["recommended_next_actions"].as_array() {
+        for (index, action) in actions.iter().enumerate() {
+            lines.push(format!("{}. {}", index + 1, action.as_str().unwrap_or("")));
+        }
+    }
+
+    if let Some(open_questions) = report["open_questions"].as_array() {
+        if !open_questions.is_empty() {
+            lines.push(String::new());
+            lines.push("**Open Questions:**".to_string());
+            for question in open_questions {
+                lines.push(format!("- {}", question.as_str().unwrap_or("")));
+            }
+        }
+    }
+
+    lines.join("\n")
+}
+
+fn read_source(source: &SourceSpec, default_cwd: &str) -> Result<Session> {
+    let cwd = source.cwd.as_deref().unwrap_or(default_cwd);
+    match source.agent.as_str() {
+        "codex" => read_codex_session(source.session_id.as_deref(), cwd),
+        "gemini" => read_gemini_session(source.session_id.as_deref(), cwd, source.chats_dir.as_deref()),
+        "claude" => read_claude_session(source.session_id.as_deref(), cwd),
+        _ => Err(anyhow!("Unsupported agent: {}", source.agent)),
+    }
+}
+
+fn evidence_tag(source: &SourceSpec) -> String {
+    let id = source
+        .session_id
+        .as_ref()
+        .map(|value| shorten(value))
+        .unwrap_or_else(|| {
+            if source.current_session {
+                "latest".to_string()
+            } else {
+                "unspecified".to_string()
+            }
+        });
+    format!("[{}:{}]", source.agent, id)
+}
+
+fn shorten(value: &str) -> String {
+    value.chars().take(8).collect()
+}
+
+fn compute_verdict(mode: &str, missing: &[(SourceSpec, String, String)], unique_contents: usize, success_count: usize) -> &'static str {
+    if success_count == 0 {
+        return "INCOMPLETE";
+    }
+
+    match mode {
+        "verify" => {
+            if missing.is_empty() && unique_contents <= 1 {
+                "PASS"
+            } else {
+                "FAIL"
+            }
+        }
+        "steer" => "STEERING_PLAN_READY",
+        "analyze" => "ANALYSIS_COMPLETE",
+        "feedback" => "FEEDBACK_COMPLETE",
+        _ => "INCOMPLETE",
+    }
+}
+
+fn validate_agent(agent: &str) -> Result<()> {
+    match agent {
+        "codex" | "gemini" | "claude" => Ok(()),
+        _ => Err(anyhow!("Unsupported agent: {}", agent)),
+    }
+}
+
+fn validate_mode(mode: &str) -> Result<()> {
+    match mode {
+        "verify" | "steer" | "analyze" | "feedback" => Ok(()),
+        _ => Err(anyhow!("Unsupported mode: {}", mode)),
+    }
+}

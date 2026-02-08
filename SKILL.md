@@ -1,11 +1,22 @@
 ---
 name: inter-agent-bridge
-description: Bridge CLI session context across Codex, Gemini, and Claude for verification, steering, analysis, and feedback. Use when users refer to another agent's output, prior sessions, or cross-agent handoff.
+description: Bridge CLI session context across Codex, Gemini, and Claude for verification, steering, analysis, and feedback. Trigger for prompts like "what's Claude doing", "what did Gemini/Codex say", "check other window output", "read previous session", "compare agent outputs", or when a session UUID is provided.
 ---
 
 # Inter-Agent Bridge
 
 This skill helps one agent evaluate and steer other agents by sharing CLI session context and enforcing a common review protocol.
+
+## Trigger Examples
+
+Use this skill immediately when the user asks things like:
+
+- "What's Claude doing?"
+- "What did Gemini say in the other window?"
+- "Show me Codex output from previous session."
+- "Compare Claude and Codex outputs."
+
+For "what is X doing now?" requests, first read the latest session for that agent (scoped by `cwd` when available) before answering.
 
 ## Universal Protocol First
 
@@ -31,7 +42,7 @@ If any critical field is missing, ask only for missing fields and keep the reque
 
 ### Reading Codex Sessions
 
-To retrieve output from Codex:
+To retrieve output from Codex (Node reference implementation):
 
 1.  **Latest Session Scoped To Current CWD (default)**:
     ```bash
@@ -48,7 +59,7 @@ To retrieve output from Codex:
 
 ### Reading Gemini Sessions
 
-To retrieve the history of a Gemini session:
+To retrieve the history of a Gemini session (Node reference implementation):
 
 1.  **Latest Session Scoped To Current CWD (default)**:
     ```bash
@@ -75,7 +86,7 @@ Gemini project chat folders are auto-resolved from `sha256(<cwd>)` at `~/.gemini
 
 ### Reading Claude Sessions
 
-To retrieve output from Claude Code:
+To retrieve output from Claude Code (Node reference implementation):
 
 1.  **Latest Session Scoped To Current CWD (default)**:
     ```bash
@@ -91,6 +102,14 @@ To retrieve output from Claude Code:
     ```
 
 Claude sessions are stored as JSONL files under `~/.claude/projects/<project-hash>/`. The parser finds the most recently modified `.jsonl` file and extracts the last assistant message.
+
+### Alternative Rust CLI
+
+The Rust reference implementation (`cli/`) supports the same `read` objective and JSON contract:
+
+```bash
+cargo run --manifest-path cli/Cargo.toml -- read --agent codex --json
+```
 
 ## Output
 

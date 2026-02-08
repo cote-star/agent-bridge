@@ -1,0 +1,20 @@
+[package]
+name = "bridge-cli"
+version = "0.2.0"
+edition = "2021"
+description = "Inter-Agent Bridge Rust CLI reference implementation"
+license = "MIT"
+repository = "https://github.com/cote-star/agent-bridge"
+keywords = ["cli", "agents", "protocol", "codex", "gemini"]
+categories = ["command-line-utilities", "development-tools"]
+
+[[bin]]
+name = "bridge"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0.101"
+clap = { version = "4.5.57", features = ["derive"] }
+dirs = "6.0.0"
+serde_json = "1.0.149"
+sha2 = "0.10.9"
