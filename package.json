@@ -13,6 +13,7 @@
     "url": "https://github.com/cote-star/agent-bridge/issues"
   },
   "bin": {
+    "bridge": "scripts/read_session.cjs",
     "bridge-node": "scripts/read_session.cjs"
   },
   "files": [

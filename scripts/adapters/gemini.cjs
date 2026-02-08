@@ -11,6 +11,13 @@ const {
 
 const geminiTmpBase = normalizePath(process.env.BRIDGE_GEMINI_TMP_DIR || '~/.gemini/tmp');
 
+function compareByMtimeDesc(a, b) {
+  if (b.mtimeNs !== a.mtimeNs) {
+    return b.mtimeNs > a.mtimeNs ? 1 : -1;
+  }
+  return String(a.path).localeCompare(String(b.path));
+}
+
 function listGeminiChatDirs() {
   if (!fs.existsSync(geminiTmpBase)) return [];
   let entries = [];
@@ -61,7 +68,7 @@ function resolve(id, cwd, opts) {
     }, false);
     for (const file of files) candidates.push(file);
   }
-  candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  candidates.sort(compareByMtimeDesc);
   return candidates.length > 0 ? { path: candidates[0].path, warnings: [], searchedDirs: dirs } : null;
 }
 
@@ -147,7 +154,7 @@ function list(cwd, limit) {
     const files = collectMatchingFiles(dir, (fp, name) => name.endsWith('.json') && name.startsWith('session-'), false);
     for (const f of files) candidates.push(f);
   }
-  candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  candidates.sort(compareByMtimeDesc);
   return candidates.slice(0, limit).map(f => ({
     session_id: path.basename(f.path, path.extname(f.path)),
     agent: 'gemini',
@@ -171,7 +178,7 @@ function search(query, cwd, limit) {
     const files = collectMatchingFiles(dir, (fp, name) => name.endsWith('.json') && name.startsWith('session-'), false);
     for (const f of files) candidates.push(f);
   }
-  candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  candidates.sort(compareByMtimeDesc);
 
   const entries = [];
   for (const f of candidates) {

@@ -11,6 +11,104 @@ const commandNames = new Set(['read', 'compare', 'report', 'list', 'search']);
 const command = commandNames.has(rawArgs[0]) ? rawArgs[0] : 'read';
 const args = commandNames.has(rawArgs[0]) ? rawArgs.slice(1) : rawArgs;
 
+function getPackageVersion() {
+  try {
+    const rootPackagePath = path.join(__dirname, '..', 'package.json');
+    return JSON.parse(fs.readFileSync(rootPackagePath, 'utf-8')).version || 'unknown';
+  } catch (_error) {
+    return 'unknown';
+  }
+}
+
+function printHelp(topic = null) {
+  const binName = path.basename(process.argv[1] || 'bridge');
+  const lines = [
+    `Agent Bridge CLI v${getPackageVersion()}`,
+    '',
+    'Usage:',
+    `  ${binName} <command> [options]`,
+    '',
+    'Commands:',
+    '  read      Read assistant messages from a session (default command)',
+    '  list      List recent sessions for an agent',
+    '  search    Search sessions by query text',
+    '  compare   Compare outputs across agents',
+    '  report    Generate a coordinator report from a handoff JSON',
+    '',
+    'Global Flags:',
+    '  -h, --help       Show help',
+    '  -v, --version    Show version',
+    '',
+    'Examples:',
+    `  ${binName} read --agent codex --json`,
+    `  ${binName} list --agent claude --limit 5 --json`,
+    `  ${binName} search \"authentication\" --agent gemini --json`,
+    `  ${binName} compare --source codex --source claude --json`,
+    `  ${binName} report --handoff ./handoff.json --json`,
+  ];
+
+  if (topic === 'read') {
+    lines.push('');
+    lines.push('read options:');
+    lines.push('  --agent <codex|gemini|claude|cursor> (default: codex)');
+    lines.push('  --id <session-substring>');
+    lines.push('  --cwd <path>');
+    lines.push('  --chats-dir <path> (gemini)');
+    lines.push('  --last <N>');
+    lines.push('  --json');
+  } else if (topic === 'list') {
+    lines.push('');
+    lines.push('list options:');
+    lines.push('  --agent <codex|gemini|claude|cursor>');
+    lines.push('  --cwd <path>');
+    lines.push('  --limit <N> (default: 10)');
+    lines.push('  --json');
+  } else if (topic === 'search') {
+    lines.push('');
+    lines.push('search options:');
+    lines.push('  <query> (positional, required)');
+    lines.push('  --agent <codex|gemini|claude|cursor> (required)');
+    lines.push('  --cwd <path>');
+    lines.push('  --limit <N> (default: 10)');
+    lines.push('  --json');
+  } else if (topic === 'compare') {
+    lines.push('');
+    lines.push('compare options:');
+    lines.push('  --source <agent[:session-substring]> (repeatable, required)');
+    lines.push('  --cwd <path>');
+    lines.push('  --normalize');
+    lines.push('  --json');
+  } else if (topic === 'report') {
+    lines.push('');
+    lines.push('report options:');
+    lines.push('  --handoff <path-to-handoff.json> (required)');
+    lines.push('  --cwd <path>');
+    lines.push('  --json');
+  }
+
+  console.log(lines.join('\n'));
+}
+
+function resolveHelpTopic(inputArgs) {
+  if (commandNames.has(inputArgs[0])) return inputArgs[0];
+  if (inputArgs[0] === 'help' && commandNames.has(inputArgs[1])) return inputArgs[1];
+  return null;
+}
+
+const wantsHelp =
+  rawArgs[0] === 'help' ||
+  rawArgs.includes('--help') ||
+  rawArgs.includes('-h');
+if (wantsHelp) {
+  printHelp(resolveHelpTopic(rawArgs));
+  process.exit(0);
+}
+
+if (rawArgs.includes('--version') || rawArgs.includes('-v')) {
+  console.log(getPackageVersion());
+  process.exit(0);
+}
+
 const codexSessionsBase = normalizePath(process.env.BRIDGE_CODEX_SESSIONS_DIR || '~/.codex/sessions');
 const claudeProjectsBase = normalizePath(process.env.BRIDGE_CLAUDE_PROJECTS_DIR || '~/.claude/projects');
 const geminiTmpBase = normalizePath(process.env.BRIDGE_GEMINI_TMP_DIR || '~/.gemini/tmp');
@@ -268,7 +366,12 @@ function resolveGeminiTargetFile(id, chatsDir, cwd) {
     }
   }
 
-  candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  candidates.sort((a, b) => {
+    if (b.mtimeNs !== a.mtimeNs) {
+      return b.mtimeNs > a.mtimeNs ? 1 : -1;
+    }
+    return String(a.path).localeCompare(String(b.path));
+  });
   return {
     targetFile: candidates.length > 0 ? candidates[0].path : null,
     searchedDirs: dirs,
