@@ -4,20 +4,20 @@
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-0.2.0-green.svg)
 
-**Inter-Agent Bridge** is a lightweight local protocol and reference implementation for reading cross-agent session context. It enables AI agents (Codex, Gemini, Claude) to "read" each other's conversation history from local storage, facilitating coordination, verification, and steering without a centralized cloud service.
+**Inter-Agent Bridge** is a lightweight local protocol and reference implementation for reading cross-agent session context. It enables AI agents (Codex, Gemini, Claude) to read each other's recent session outputs from local storage, facilitating coordination, verification, and steering without a centralized cloud service.
 
 ## 🌟 Key Tenets
 
-1.  **Local-First**: Reads directly from local session logs (`~/.codex/sessions`, etc.) by default. No data leaves your machine.
+1.  **Local-First**: Reads directly from local session logs (`~/.codex/sessions`, etc.) by default and does not call external services for `read`, `compare`, or `report`.
 2.  **Evidence-Based**: Every claim or summary must track back to a specific source session file.
 3.  **Privacy-Focused**: Automatically redacts sensitive keys (API keys, AWS tokens) before output.
-4.  **Dual Parity**: Ships with both **Node.js** and **Rust** CLIs that guarantee the same output contract.
+4.  **Dual Parity**: Ships with both **Node.js** and **Rust** CLIs that are conformance-tested against the same output contract.
 
-## � Demo
+## 🎥 Demo
 
 ![Inter-Agent Bridge Demo](docs/demo.webp)
 
-## �🏗️ Architecture
+## 🏗️ Architecture
 
 The bridge acts as a universal translator for agent session formats.
 
@@ -43,14 +43,16 @@ sequenceDiagram
 | :----------------- | :---: | :----: | :----: |
 | **Read Content**   |  ✅   |   ✅   |   ✅   |
 | **Auto-Discovery** |  ✅   |   ✅   |   ✅   |
-| **CWD Scoping**    |  ✅   |   ❌   |   ✅   |
+| **CWD Scoping**    |  ✅   |   ⚠️   |   ✅   |
 | **Comparisons**    |  ✅   |   ✅   |   ✅   |
+
+> ⚠️ Gemini resolves sessions by hashing the working directory path (SHA256) to locate chat files, rather than extracting CWD metadata from session content like Codex and Claude.
 
 ## 📦 Installation
 
-### Consumers (Users)
+### Consumers (After Release)
 
-Install the CLI tool globally to use it from your terminal.
+> Available after v0.2.0 is published to npm / crates.io.
 
 **Node.js**:
 
@@ -59,7 +61,7 @@ npm install -g inter-agent-bridge-cli
 bridge-node read --agent=codex --json
 ```
 
-**Rust (Recommended for Performance)**:
+**Rust**:
 
 ```bash
 cargo install bridge-cli
@@ -74,7 +76,7 @@ Clone the repository to build from source.
 
 ```bash
 npm install
-node scripts/read_session.cjs --agent=codex
+node scripts/read_session.cjs read --agent=codex
 ```
 
 **Rust**:
@@ -85,9 +87,11 @@ cargo run --manifest-path cli/Cargo.toml -- read --agent codex
 
 ## 📖 Usage
 
+> **Note**: The examples below use the `bridge` command. If you installed via Node.js (`npm`), use `bridge-node` instead.
+
 ### Reading a Session
 
-Get the last assistant message from a specific agent context.
+Get the last assistant/model output from a specific agent context.
 
 ```bash
 # Read from Codex (defaults to latest session)
@@ -105,7 +109,7 @@ bridge read --agent gemini --json
 Compare outputs from multiple agents to detect divergence.
 
 ```bash
-bridge compare --source codex:latest --source gemini:latest --json
+bridge compare --source codex --source gemini --source claude --json
 ```
 
 ### Reporting
@@ -115,6 +119,18 @@ Generate a full coordination report from a handoff packet.
 ```bash
 bridge report --handoff ./handoff_packet.json --json
 ```
+
+### Protocol-Accurate Command Contract
+
+```bash
+bridge read --agent <codex|gemini|claude> [--id=<substring>] [--cwd=<path>] [--chats-dir=<path>] [--json]
+bridge compare --source <agent[:session-substring]>... [--cwd=<path>] [--json]
+bridge report --handoff <handoff.json> [--cwd=<path>] [--json]
+```
+
+- `read` returns the latest assistant/model output found in the selected session (or fallback raw lines when structured extraction fails).
+- `compare` parses each `--source` as `<agent>` (current session) or `<agent>:<session-substring>`.
+- `report` consumes a handoff packet and emits structured findings/recommendations.
 
 ## ⚙️ Configuration
 
@@ -140,12 +156,26 @@ Ensure both Node and Rust implementations return identical output for the same f
 bash scripts/conformance.sh
 ```
 
+### README Command Checks
+
+Run fixture-backed checks for command examples documented in this README.
+
+```bash
+bash scripts/check_readme_examples.sh
+```
+
 ### Schema Validation
 
 Validate that generated reports match the JSON schema.
 
 ```bash
 bash scripts/validate_schemas.sh
+```
+
+If your environment is offline, use:
+
+```bash
+BRIDGE_SKIP_AJV=1 bash scripts/validate_schemas.sh
 ```
 
 ---

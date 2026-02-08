@@ -23,6 +23,9 @@ jobs:
       - name: Verify conformance
         run: bash scripts/conformance.sh
 
+      - name: Verify README command examples
+        run: bash scripts/check_readme_examples.sh
+
       - name: Validate schemas
         run: bash scripts/validate_schemas.sh
 

@@ -26,6 +26,25 @@
         "type": "object",
         "additionalProperties": false,
         "required": ["agent"],
+        "anyOf": [
+          {
+            "required": ["session_id"],
+            "properties": {
+              "session_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          {
+            "required": ["current_session"],
+            "properties": {
+              "current_session": {
+                "const": true
+              }
+            }
+          }
+        ],
         "properties": {
           "agent": {
             "type": "string",

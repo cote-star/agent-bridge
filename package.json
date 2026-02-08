@@ -24,7 +24,8 @@
   ],
   "scripts": {
     "conformance": "bash scripts/conformance.sh",
+    "check:readme": "bash scripts/check_readme_examples.sh",
     "validate:schemas": "bash scripts/validate_schemas.sh",
-    "check": "npm run conformance && npm run validate:schemas"
+    "check": "npm run conformance && npm run check:readme && npm run validate:schemas"
   }
 }

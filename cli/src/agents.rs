@@ -638,11 +638,14 @@ fn redact_aws_access_keys(input: &str) -> String {
 
 fn redact_bearer_tokens(input: &str) -> String {
     let mut out = input.to_string();
+    let mut search_from = 0usize;
+
     loop {
         let lower = out.to_ascii_lowercase();
-        let Some(start) = lower.find("bearer ") else {
+        let Some(relative_start) = lower[search_from..].find("bearer ") else {
             break;
         };
+        let start = search_from + relative_start;
         let token_start = start + "bearer ".len();
         let mut token_end = token_start;
         let bytes = out.as_bytes();
@@ -655,9 +658,11 @@ fn redact_bearer_tokens(input: &str) -> String {
             }
         }
         if token_end.saturating_sub(token_start) < 10 {
-            break;
+            search_from = token_end.max(start + "bearer ".len());
+            continue;
         }
         out.replace_range(start..token_end, "Bearer [REDACTED]");
+        search_from = start + "Bearer [REDACTED]".len();
     }
     out
 }
@@ -755,4 +760,23 @@ fn gemini_tmp_base_dir() -> PathBuf {
         .ok()
         .and_then(|value| expand_home(&value))
         .unwrap_or_else(|| expand_home("~/.gemini/tmp").unwrap_or_else(|| PathBuf::from("~/.gemini/tmp")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::redact_sensitive_text;
+
+    #[test]
+    fn redacts_multiple_bearer_tokens() {
+        let input = "Bearer abcdefghij and Bearer zyxwvutsrq";
+        let output = redact_sensitive_text(input);
+        assert_eq!(output, "Bearer [REDACTED] and Bearer [REDACTED]");
+    }
+
+    #[test]
+    fn short_bearer_token_does_not_block_later_redaction() {
+        let input = "Bearer short and Bearer abcdefghijklmnop";
+        let output = redact_sensitive_text(input);
+        assert_eq!(output, "Bearer short and Bearer [REDACTED]");
+    }
 }

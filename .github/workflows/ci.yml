@@ -29,5 +29,8 @@ jobs:
       - name: Run cross-implementation conformance
         run: bash scripts/conformance.sh
 
+      - name: Validate README command examples
+        run: bash scripts/check_readme_examples.sh
+
       - name: Validate JSON schemas against fixtures and outputs
         run: bash scripts/validate_schemas.sh

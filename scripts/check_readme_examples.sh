@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+STORE="$ROOT/fixtures/session-store"
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
+
+read_node_json="$TMP_DIR/read-node.json"
+read_rust_json="$TMP_DIR/read-rust.json"
+compare_node_json="$TMP_DIR/compare-node.json"
+compare_rust_json="$TMP_DIR/compare-rust.json"
+report_node_json="$TMP_DIR/report-node.json"
+report_rust_json="$TMP_DIR/report-rust.json"
+
+BRIDGE_CODEX_SESSIONS_DIR="$STORE/codex/sessions" \
+BRIDGE_GEMINI_TMP_DIR="$STORE/gemini/tmp" \
+BRIDGE_CLAUDE_PROJECTS_DIR="$STORE/claude/projects" \
+node "$ROOT/scripts/read_session.cjs" read --agent=codex --cwd=/workspace/demo --json > "$read_node_json"
+
+BRIDGE_CODEX_SESSIONS_DIR="$STORE/codex/sessions" \
+BRIDGE_GEMINI_TMP_DIR="$STORE/gemini/tmp" \
+BRIDGE_CLAUDE_PROJECTS_DIR="$STORE/claude/projects" \
+cargo run --quiet --manifest-path "$ROOT/cli/Cargo.toml" -- read --agent codex --cwd /workspace/demo --json > "$read_rust_json"
+
+BRIDGE_CODEX_SESSIONS_DIR="$STORE/codex/sessions" \
+BRIDGE_GEMINI_TMP_DIR="$STORE/gemini/tmp" \
+BRIDGE_CLAUDE_PROJECTS_DIR="$STORE/claude/projects" \
+node "$ROOT/scripts/read_session.cjs" compare \
+  --source=codex \
+  --source=gemini \
+  --source=claude \
+  --cwd=/workspace/demo \
+  --json > "$compare_node_json"
+
+BRIDGE_CODEX_SESSIONS_DIR="$STORE/codex/sessions" \
+BRIDGE_GEMINI_TMP_DIR="$STORE/gemini/tmp" \
+BRIDGE_CLAUDE_PROJECTS_DIR="$STORE/claude/projects" \
+cargo run --quiet --manifest-path "$ROOT/cli/Cargo.toml" -- compare \
+  --source codex \
+  --source gemini \
+  --source claude \
+  --cwd /workspace/demo \
+  --json > "$compare_rust_json"
+
+BRIDGE_CODEX_SESSIONS_DIR="$STORE/codex/sessions" \
+BRIDGE_GEMINI_TMP_DIR="$STORE/gemini/tmp" \
+BRIDGE_CLAUDE_PROJECTS_DIR="$STORE/claude/projects" \
+node "$ROOT/scripts/read_session.cjs" report \
+  --handoff="$ROOT/fixtures/handoff-report.json" \
+  --json > "$report_node_json"
+
+BRIDGE_CODEX_SESSIONS_DIR="$STORE/codex/sessions" \
+BRIDGE_GEMINI_TMP_DIR="$STORE/gemini/tmp" \
+BRIDGE_CLAUDE_PROJECTS_DIR="$STORE/claude/projects" \
+cargo run --quiet --manifest-path "$ROOT/cli/Cargo.toml" -- report \
+  --handoff "$ROOT/fixtures/handoff-report.json" \
+  --json > "$report_rust_json"
+
+node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));" "$read_node_json"
+node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));" "$read_rust_json"
+node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));" "$compare_node_json"
+node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));" "$compare_rust_json"
+node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));" "$report_node_json"
+node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));" "$report_rust_json"
+
+node "$ROOT/scripts/compare_read_output.cjs" "$read_node_json" "$read_rust_json" "readme-read"
+node "$ROOT/scripts/compare_read_output.cjs" "$compare_node_json" "$compare_rust_json" "readme-compare"
+node "$ROOT/scripts/compare_read_output.cjs" "$report_node_json" "$report_rust_json" "readme-report"
+
+echo "README command checks complete."
