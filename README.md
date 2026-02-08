@@ -44,14 +44,6 @@ From zero to a working skill query in under a minute.
 
 </details>
 
-Regenerate demo assets:
-
-```bash
-node scripts/record_demo.js --input fixtures/demo/player-status.html --output docs/demo-status.webp --duration-ms 22000
-node scripts/record_demo.js --input fixtures/demo/player-handoff.html --output docs/demo-handoff.webp --duration-ms 20000
-node scripts/record_demo.js --input fixtures/demo/player-setup.html --output docs/demo-setup.webp --duration-ms 15000
-```
-
 ## Quick Start
 
 ### 1. Install
@@ -339,6 +331,18 @@ cargo test --manifest-path cli/Cargo.toml
 
 # README command verification
 bash scripts/check_readme_examples.sh
+```
+
+### Regenerating Demo Assets
+
+Requires `puppeteer` and `img2webp` (`brew install webp`):
+
+```bash
+npm install --save-dev puppeteer
+node scripts/record_demo.js --input fixtures/demo/player-status.html --output docs/demo-status.webp --duration-ms 22000
+node scripts/record_demo.js --input fixtures/demo/player-handoff.html --output docs/demo-handoff.webp --duration-ms 20000
+node scripts/record_demo.js --input fixtures/demo/player-setup.html --output docs/demo-setup.webp --duration-ms 15000
+npm uninstall puppeteer
 ```
 
 ### Adding a New Agent
