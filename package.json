@@ -17,10 +17,11 @@
   },
   "files": [
     "scripts/read_session.cjs",
+    "scripts/adapters",
+    "LICENSE",
     "PROTOCOL.md",
     "README.md",
-    "schemas",
-    "fixtures"
+    "schemas"
   ],
   "devDependencies": {
     "ajv-cli": "^5.0.0"
@@ -28,7 +29,8 @@
   "scripts": {
     "conformance": "bash scripts/conformance.sh",
     "check:readme": "bash scripts/check_readme_examples.sh",
+    "check:package": "bash scripts/check_package_contents.sh",
     "validate:schemas": "bash scripts/validate_schemas.sh",
-    "check": "npm run conformance && npm run check:readme && npm run validate:schemas"
+    "check": "npm run conformance && npm run check:readme && npm run check:package && npm run validate:schemas"
   }
 }

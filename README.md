@@ -15,7 +15,7 @@
 
 ## Demo
 
-![Agent Bridge Demo](docs/demo.webp)
+![Agent Bridge Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo.webp)
 
 ## Architecture
 
@@ -253,8 +253,7 @@ Redaction is applied to `api_key`, `apikey`, `token`, `secret`, and `password` a
 ## Development
 
 - **Protocol**: See [PROTOCOL.md](./PROTOCOL.md) for the CLI and JSON specification.
-- **Skills**: See [SKILL.md](./SKILL.md) for agentic capabilities.
-- **Release**: See [docs/release.md](./docs/release.md) for publishing workflows.
+- **Contributing**: See [`CONTRIBUTING.md`](https://github.com/cote-star/agent-bridge/blob/main/CONTRIBUTING.md) for setup, tests, and PR expectations.
 
 ### Project Structure
 
@@ -333,4 +332,4 @@ Both implementations use an adapter pattern. To add a new agent:
 
 ---
 
-_Maintained by Amit._
+Contributions and issue reports are welcome.

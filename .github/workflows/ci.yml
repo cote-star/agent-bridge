@@ -38,5 +38,8 @@ jobs:
       - name: Validate README command examples
         run: bash scripts/check_readme_examples.sh
 
+      - name: Validate npm package contents
+        run: bash scripts/check_package_contents.sh
+
       - name: Validate JSON schemas against fixtures and outputs
         run: bash scripts/validate_schemas.sh
