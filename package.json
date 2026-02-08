@@ -1,6 +1,6 @@
 {
   "name": "agent-bridge",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": false,
   "type": "commonjs",
   "license": "MIT",
@@ -26,7 +26,8 @@
     "schemas"
   ],
   "devDependencies": {
-    "ajv-cli": "^5.0.0"
+    "ajv-cli": "^5.0.0",
+    "puppeteer": "^24.37.2"
   },
   "scripts": {
     "conformance": "bash scripts/conformance.sh",
