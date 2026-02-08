@@ -561,6 +561,168 @@ function readClaudeSession(id, cwd, lastN) {
   };
 }
 
+const cursorDataBase = normalizePath(process.env.BRIDGE_CURSOR_DATA_DIR || (
+  process.platform === 'darwin'
+    ? '~/Library/Application Support/Cursor'
+    : '~/.cursor'
+));
+
+function readCursorSession(id, cwd, lastN) {
+  lastN = lastN || 1;
+  if (!fs.existsSync(cursorDataBase)) {
+    throw new Error(`No Cursor session found. Data directory not found: ${cursorDataBase}`);
+  }
+
+  const workspacesDir = path.join(cursorDataBase, 'User', 'workspaceStorage');
+  if (!fs.existsSync(workspacesDir)) {
+    throw new Error(`No Cursor session found. Workspace storage not found: ${workspacesDir}`);
+  }
+
+  const files = collectMatchingFiles(workspacesDir, (fullPath, name) => {
+    const isMatch = (name.endsWith('.json') || name.endsWith('.jsonl'))
+      && (name.includes('chat') || name.includes('composer') || name.includes('conversation'));
+    if (!isMatch) return false;
+    if (id) return fullPath.includes(id);
+    return true;
+  }, true);
+
+  if (files.length === 0) {
+    throw new Error('No Cursor session found.');
+  }
+
+  const targetFile = files[0].path;
+  const raw = fs.readFileSync(targetFile, 'utf-8');
+  let content = '';
+  let messageCount = 0;
+
+  try {
+    const json = JSON.parse(raw);
+    if (Array.isArray(json.messages)) {
+      const assistantMsgs = json.messages.filter(m => m.role === 'assistant');
+      messageCount = assistantMsgs.length;
+      if (assistantMsgs.length > 0) {
+        content = assistantMsgs[assistantMsgs.length - 1].content || '[No text content]';
+      } else {
+        content = '[No assistant messages found]';
+      }
+    } else if (typeof json.content === 'string') {
+      content = json.content;
+      messageCount = 1;
+    } else {
+      content = JSON.stringify(json, null, 2);
+    }
+  } catch (error) {
+    // JSONL format
+    const lines = raw.split('\n').filter(Boolean);
+    const msgs = [];
+    for (const line of lines) {
+      try {
+        const json = JSON.parse(line);
+        if (json.role === 'assistant' && typeof json.content === 'string') {
+          msgs.push(json.content);
+        }
+      } catch (e) { /* skip */ }
+    }
+    messageCount = msgs.length;
+    content = msgs.length > 0 ? msgs[msgs.length - 1] : lines.slice(-20).join('\n');
+  }
+
+  const sessionId = path.basename(targetFile, path.extname(targetFile));
+
+  return {
+    agent: 'cursor',
+    source: targetFile,
+    content: redactSensitiveText(content),
+    warnings: [],
+    session_id: sessionId,
+    cwd: null,
+    timestamp: getFileTimestamp(targetFile),
+    message_count: messageCount,
+    messages_returned: 1,
+  };
+}
+
+function listSessions(agent, cwd, limit) {
+  limit = limit || 10;
+
+  if (agent === 'codex') {
+    if (!fs.existsSync(codexSessionsBase)) return [];
+    const files = collectMatchingFiles(codexSessionsBase, (_fp, name) => name.endsWith('.jsonl'), true);
+    return files.slice(0, limit).map(f => ({
+      session_id: path.basename(f.path, path.extname(f.path)),
+      agent: 'codex',
+      cwd: getCodexSessionCwd(f.path) || null,
+      modified_at: getFileTimestamp(f.path),
+      file_path: f.path,
+    }));
+  }
+
+  if (agent === 'gemini') {
+    const dirs = resolveGeminiChatDirs(null, cwd);
+    const candidates = [];
+    for (const dir of dirs) {
+      const files = collectMatchingFiles(dir, (fp, name) => name.endsWith('.json') && name.startsWith('session-'), false);
+      for (const f of files) candidates.push(f);
+    }
+    candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    return candidates.slice(0, limit).map(f => ({
+      session_id: path.basename(f.path, path.extname(f.path)),
+      agent: 'gemini',
+      cwd: null,
+      modified_at: getFileTimestamp(f.path),
+      file_path: f.path,
+    }));
+  }
+
+  if (agent === 'claude') {
+    if (!fs.existsSync(claudeProjectsBase)) return [];
+    const files = collectMatchingFiles(claudeProjectsBase, (_fp, name) => name.endsWith('.jsonl'), true);
+    return files.slice(0, limit).map(f => ({
+      session_id: path.basename(f.path, path.extname(f.path)),
+      agent: 'claude',
+      cwd: getClaudeSessionCwd(f.path) || null,
+      modified_at: getFileTimestamp(f.path),
+      file_path: f.path,
+    }));
+  }
+
+  if (agent === 'cursor') {
+    if (!fs.existsSync(cursorDataBase)) return [];
+    const workspacesDir = path.join(cursorDataBase, 'User', 'workspaceStorage');
+    if (!fs.existsSync(workspacesDir)) return [];
+    const files = collectMatchingFiles(workspacesDir, (_fp, name) => {
+      return (name.endsWith('.json') || name.endsWith('.jsonl'))
+        && (name.includes('chat') || name.includes('composer') || name.includes('conversation'));
+    }, true);
+    return files.slice(0, limit).map(f => ({
+      session_id: path.basename(f.path, path.extname(f.path)),
+      agent: 'cursor',
+      cwd: null,
+      modified_at: getFileTimestamp(f.path),
+      file_path: f.path,
+    }));
+  }
+
+  throw new Error(`Unsupported agent: ${agent}`);
+}
+
+function runList(inputArgs) {
+  const agent = getOptionValue(inputArgs, '--agent', 'codex');
+  const cwd = normalizePath(getOptionValue(inputArgs, '--cwd', process.cwd()));
+  const limit = parseInt(getOptionValue(inputArgs, '--limit', '10'), 10) || 10;
+  const asJson = hasFlag(inputArgs, '--json');
+
+  const entries = listSessions(agent, cwd, limit);
+
+  if (asJson) {
+    console.log(JSON.stringify(entries, null, 2));
+  } else {
+    for (const entry of entries) {
+      console.log(JSON.stringify(entry));
+    }
+  }
+}
+
 function readSource(sourceSpec, defaultCwd) {
   const effectiveCwd = normalizePath(sourceSpec.cwd || defaultCwd);
   if (sourceSpec.agent === 'codex') {

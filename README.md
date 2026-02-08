@@ -17,7 +17,7 @@
 
 ![Inter-Agent Bridge Demo](docs/demo.webp)
 
-## �🏗️ Architecture
+## 🏗️ Architecture
 
 The bridge acts as a universal translator for agent session formats.
 

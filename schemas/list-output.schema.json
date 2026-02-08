@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inter-agent-bridge.dev/schemas/list-output.schema.json",
+  "title": "Bridge List Output",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["session_id", "agent", "modified_at", "file_path"],
+    "properties": {
+      "session_id": {
+        "type": "string"
+      },
+      "agent": {
+        "type": "string",
+        "enum": ["codex", "gemini", "claude", "cursor"]
+      },
+      "cwd": {
+        "type": ["string", "null"]
+      },
+      "modified_at": {
+        "type": ["string", "null"],
+        "format": "date-time"
+      },
+      "file_path": {
+        "type": "string"
+      }
+    }
+  }
+}
