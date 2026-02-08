@@ -25,7 +25,26 @@ function canonicalize(value, key) {
   }
 
   if (Array.isArray(value)) {
-    return value.map((v) => canonicalize(v));
+    const mapped = value.map((v) => canonicalize(v));
+
+    // Normalize ordering for list/search style outputs where entries are objects
+    // with session_id/agent/file_path. Mtime ordering is environment-dependent.
+    if (mapped.every((entry) =>
+      entry &&
+      typeof entry === 'object' &&
+      !Array.isArray(entry) &&
+      typeof entry.session_id === 'string' &&
+      typeof entry.agent === 'string' &&
+      Object.prototype.hasOwnProperty.call(entry, 'file_path')
+    )) {
+      mapped.sort((a, b) =>
+        String(a.session_id).localeCompare(String(b.session_id)) ||
+        String(a.agent).localeCompare(String(b.agent)) ||
+        String(a.file_path).localeCompare(String(b.file_path))
+      );
+    }
+
+    return mapped;
   }
 
   if (value && typeof value === 'object') {
