@@ -4,64 +4,84 @@
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-0.4.1-green.svg)
 
-**Agent Bridge** is a lightweight local protocol and reference implementation for reading cross-agent session context. It enables AI agents (Codex, Gemini, Claude, Cursor) to read each other's conversation history from local storage, facilitating coordination, verification, and steering without a centralized cloud service.
+**Let your AI agents talk about each other.**
 
-## Key Tenets
+Ask one agent what another is doing — and get an evidence-backed answer. No copy-pasting, no tab-switching, no guessing.
 
-1. **Local-First**: Reads directly from local session logs (`~/.codex/sessions`, etc.) by default. No data leaves your machine.
-2. **Evidence-Based**: Every claim or summary must track back to a specific source session file.
-3. **Privacy-Focused**: Automatically redacts sensitive keys (API keys, AWS tokens, bearer tokens, passwords) before output.
-4. **Dual Parity**: Ships with both **Node.js** and **Rust** CLIs that guarantee the same output contract.
+## How It Works
+
+1. **Ask naturally** — "What is Claude doing?" / "Did Gemini finish the API?"
+2. **Agent runs bridge** — Your agent calls `bridge read`, `bridge compare`, etc. behind the scenes
+3. **Evidence-backed answer** — Sources cited, divergences flagged, no hallucination
+
+**Tenets:**
+- **Local-first** — reads directly from agent session logs on your machine. No data leaves.
+- **Evidence-based** — every claim tracks to a specific source session file.
+- **Privacy-focused** — automatically redacts API keys, tokens, and passwords.
+- **Dual parity** — ships Node.js + Rust CLIs with identical output contracts.
 
 ## Demo
 
-### Bridge Compare Demo
+### The Status Check
 
-![Agent Bridge Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo.webp)
+Three agents working on checkout. You ask Codex what the others are doing.
 
-### Skill + Setup Demo
+![Status Check Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-status.webp)
 
-![Agent Bridge Skill Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-skill.svg)
+<details><summary>More Demos</summary>
+
+### The Handoff
+
+Switch from Gemini to Claude mid-task. Claude picks up where Gemini left off.
+
+![Handoff Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-handoff.webp)
+
+### Quick Setup
+
+From zero to a working skill query in under a minute.
+
+![Setup Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-setup.webp)
+
+</details>
 
 Regenerate demo assets:
 
 ```bash
-# Existing bridge compare/report flow
-node scripts/record_demo.js --input fixtures/demo/player.html --output docs/demo.webp
-
-# Skill-based setup + natural language trigger flow
-node scripts/record_demo.js --input fixtures/demo/player-skill-setup.html --output docs/demo-skill.webp --duration-ms 28000
+node scripts/record_demo.js --input fixtures/demo/player-status.html --output docs/demo-status.webp --duration-ms 22000
+node scripts/record_demo.js --input fixtures/demo/player-handoff.html --output docs/demo-handoff.webp --duration-ms 20000
+node scripts/record_demo.js --input fixtures/demo/player-setup.html --output docs/demo-setup.webp --duration-ms 15000
 ```
 
-## Architecture
+## Quick Start
 
-The bridge acts as a universal translator for agent session formats. Each agent has a dedicated **adapter** that handles session resolution, reading, and listing.
+### 1. Install
 
-<!-- GitHub renders the Mermaid block natively; npm falls back to the committed SVG -->
-```mermaid
-sequenceDiagram
-    participant User
-    participant BridgeCLI
-    participant Codex as ~/.codex/sessions
-    participant Gemini as ~/.gemini/tmp
-    participant Claude as ~/.claude/projects
-    participant Cursor as ~/Library/.../Cursor
-
-    User->>BridgeCLI: bridge read --agent codex --id "fix-bug"
-    BridgeCLI->>Codex: Scan & Parse JSONL
-    Codex-->>BridgeCLI: Raw Session Data
-    BridgeCLI->>BridgeCLI: Redact Secrets (sk-..., AKIA..., Bearer ...)
-    BridgeCLI->>BridgeCLI: Format via Schema
-    BridgeCLI-->>User: Structured JSON Output
+```bash
+npm install -g agent-bridge
+# or
+cargo install agent-bridge
 ```
 
-<details><summary>Diagram not rendering? View as image</summary>
+### 2. Setup
 
-![Architecture sequence diagram](./docs/architecture.svg)
+```bash
+bridge setup
+bridge doctor
+```
 
-</details>
+This wires skill triggers into your agent configs (`CLAUDE.md`, `GEMINI.md`, `AGENTS.md`) so agents know how to use the bridge.
 
-## Feature Matrix
+### 3. Ask
+
+Tell any agent:
+
+> "What is Claude doing?"
+> "Compare Codex and Gemini outputs."
+> "Pick up where Gemini left off."
+
+The agent runs bridge commands behind the scenes and gives you an evidence-backed answer.
+
+## Supported Agents
 
 | Feature            | Codex | Gemini | Claude | Cursor |
 | :----------------- | :---: | :----: | :----: | :----: |
@@ -72,97 +92,35 @@ sequenceDiagram
 | **Search**         |  Yes  |  Yes   |  Yes   |  Yes   |
 | **Comparisons**    |  Yes  |  Yes   |  Yes   |  Yes   |
 
-## Installation
+## Architecture
 
-### Consumers (Users)
+The bridge sits between your agent and other agents' session logs. You talk to your agent — your agent talks to the bridge.
 
-Install the CLI tool globally to use it from your terminal.
+```mermaid
+sequenceDiagram
+    participant User
+    participant Agent as Your Agent (Codex, Claude, etc.)
+    participant Bridge as bridge CLI
+    participant Sessions as Other Agent Sessions
 
-**Node.js**:
-
-```bash
-npm install -g agent-bridge
-bridge read --agent=codex --json
-# also available: bridge-node
+    User->>Agent: "What is Claude doing?"
+    Agent->>Bridge: bridge read --agent claude --json
+    Bridge->>Sessions: Scan ~/.claude/projects/*.jsonl
+    Sessions-->>Bridge: Raw session data
+    Bridge->>Bridge: Redact secrets, format
+    Bridge-->>Agent: Structured JSON
+    Agent-->>User: Evidence-backed natural language answer
 ```
 
-**Rust (Recommended for Performance)**:
+<details><summary>Diagram not rendering? View as image</summary>
 
-```bash
-cargo install agent-bridge
-bridge read --agent codex --json
-```
+![Architecture sequence diagram](./docs/architecture.svg)
 
-### Contributors (Developers)
+</details>
 
-Clone the repository to build from source.
+<details><summary><h2>CLI Reference</h2></summary>
 
-**Node**:
-
-```bash
-npm ci
-node scripts/read_session.cjs read --agent=codex
-```
-
-**Rust**:
-
-```bash
-cargo run --manifest-path cli/Cargo.toml -- read --agent codex
-```
-
-## Usage
-
-The npm package installs both `bridge` and `bridge-node` commands.
-
-```bash
-bridge --help
-bridge-node --version
-```
-
-For consistent cross-provider behavior in a project, run:
-
-```bash
-bridge setup
-bridge doctor
-```
-
-### Skill-Based Usage (Natural Language Triggers)
-
-`agent-bridge` is not only command-driven. It also supports a skill-style workflow so agents can respond to prompts like:
-
-- "What is Claude doing?"
-- "What did Gemini say?"
-- "Compare Codex and Claude outputs."
-
-Run setup once per project:
-
-```bash
-bridge setup
-```
-
-This creates:
-
-- `.agent-bridge/INTENTS.md` (shared trigger contract)
-- `.agent-bridge/providers/codex.md`
-- `.agent-bridge/providers/claude.md`
-- `.agent-bridge/providers/gemini.md`
-- Managed integration blocks in `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`
-
-Verify wiring and session visibility:
-
-```bash
-bridge doctor
-bridge doctor --json
-```
-
-After setup, the recommended behavior for all providers is:
-
-1. Resolve user intent (cross-agent status, compare, verification).
-2. Fetch evidence with `bridge read/list/search`.
-3. Use `bridge compare` or `bridge report` when multiple sources are involved.
-4. Report missing sessions explicitly rather than guessing.
-
-### Protocol-Accurate Command Contract
+### Command Contract
 
 ```bash
 bridge read --agent <codex|gemini|claude|cursor> [--id=<substring>] [--cwd=<path>] [--chats-dir=<path>] [--last=<N>] [--json]
@@ -175,8 +133,6 @@ bridge doctor [--cwd=<path>] [--json]
 ```
 
 ### Reading a Session
-
-Get assistant messages from a specific agent context.
 
 ```bash
 # Read from Codex (defaults to latest session, last message)
@@ -215,8 +171,6 @@ When `--last N` is greater than 1, multiple messages are separated by `\n---\n` 
 
 ### Listing Sessions
 
-List recent sessions for an agent.
-
 ```bash
 # List the 10 most recent Codex sessions
 bridge list --agent codex --json
@@ -244,8 +198,6 @@ bridge list --agent codex --cwd /path/to/project --json
 
 ### Searching Sessions
 
-Search session contents by keyword.
-
 ```bash
 # Find sessions mentioning "authentication"
 bridge search "authentication" --agent claude --json
@@ -254,9 +206,7 @@ bridge search "authentication" --agent claude --json
 bridge search "bug fix" --agent codex --limit 3 --json
 ```
 
-### Comparing Agents (`analyze` mode)
-
-Compare outputs from multiple agents to detect divergence.
+### Comparing Agents
 
 ```bash
 # Compare latest sessions across agents
@@ -269,19 +219,17 @@ bridge compare --source codex:fix-bug --source claude:fix-bug --json
 bridge compare --source codex --source gemini --normalize --json
 ```
 
-The `--normalize` flag collapses all whitespace before comparison, so formatting-only differences are ignored.
+The `--normalize` flag collapses all whitespace before comparison.
 
 ### Reporting
-
-Generate a full coordination report from a handoff packet.
 
 ```bash
 bridge report --handoff ./handoff_packet.json --json
 ```
 
-### Error Handling
+### Error Codes
 
-When `--json` is active, errors are returned as structured JSON with a stable error code:
+When `--json` is active, errors are returned as structured JSON:
 
 ```json
 {
@@ -300,7 +248,7 @@ When `--json` is active, errors are returned as structured JSON with a stable er
 | `EMPTY_SESSION`     | Session exists but has no messages   |
 | `IO_ERROR`          | General I/O error                    |
 
-## Configuration
+### Configuration
 
 Override default paths using environment variables.
 
@@ -311,7 +259,7 @@ Override default paths using environment variables.
 | `BRIDGE_CLAUDE_PROJECTS_DIR` | Path to Claude projects     | `~/.claude/projects`                   |
 | `BRIDGE_CURSOR_DATA_DIR`     | Path to Cursor data         | `~/Library/Application Support/Cursor` |
 
-## Redaction
+### Redaction
 
 The bridge automatically redacts sensitive data before output:
 
@@ -323,6 +271,8 @@ The bridge automatically redacts sensitive data before output:
 | Secret assignments          | `api_key="super-secret"` | `api_key=[REDACTED]`  |
 
 Redaction is applied to `api_key`, `apikey`, `token`, `secret`, and `password` assignments with `=` or `:` separators.
+
+</details>
 
 ## Development
 
@@ -346,7 +296,6 @@ scripts/
   test_edge_cases.sh      # Edge-case and error code tests
   validate_schemas.sh     # JSON schema validation
   check_readme_examples.sh
-  compare_read_output.cjs # Golden file comparison utility
 
 cli/
   src/
@@ -373,22 +322,19 @@ fixtures/
 
 ### Testing
 
-Run the full test suite:
-
 ```bash
-# Install dependencies
 npm ci
 
-# Cross-implementation conformance (Node vs Rust parity + golden file diffs)
+# Cross-implementation conformance (Node vs Rust parity)
 bash scripts/conformance.sh
 
-# Edge-case tests (malformed input, missing data, error codes)
+# Edge-case tests
 bash scripts/test_edge_cases.sh
 
 # JSON schema validation
 bash scripts/validate_schemas.sh
 
-# Rust unit tests (redaction, parsing)
+# Rust unit tests
 cargo test --manifest-path cli/Cargo.toml
 
 # README command verification
@@ -397,12 +343,10 @@ bash scripts/check_readme_examples.sh
 
 ### Adding a New Agent
 
-Both implementations use an adapter pattern. To add a new agent:
-
-1. **Rust**: Create `cli/src/adapters/<agent>.rs` implementing the `AgentAdapter` trait, register it in `cli/src/adapters/mod.rs`
-2. **Node**: Create `scripts/adapters/<agent>.cjs` exporting `resolve`, `read`, and `list`, register it in `scripts/adapters/registry.cjs`
-3. Add the agent name to enums in `schemas/*.schema.json`
-4. Add test fixtures in `fixtures/session-store/<agent>/` and golden files in `fixtures/golden/`
+1. **Rust**: Create `cli/src/adapters/<agent>.rs` implementing `AgentAdapter`, register in `mod.rs`
+2. **Node**: Create `scripts/adapters/<agent>.cjs` exporting `resolve`, `read`, `list`, register in `registry.cjs`
+3. Add agent name to enums in `schemas/*.schema.json`
+4. Add fixtures in `fixtures/session-store/<agent>/` and golden files in `fixtures/golden/`
 5. Add conformance and edge-case tests
 
 ---

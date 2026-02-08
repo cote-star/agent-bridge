@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Bridge — The Status Check</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --pane-bg: #161b22;
+            --fg: #c9d1d9;
+            --dim: #6e7681;
+            --border: #30363d;
+            --gemini-accent: #4285F4;
+            --claude-accent: #CC7832;
+            --codex-accent: #10A37F;
+            --red: #f85149;
+            --green: #3fb950;
+            --yellow: #d29922;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg);
+            color: var(--fg);
+            font-family: 'SF Mono', 'Menlo', 'Monaco', 'Cascadia Code', 'Courier New', monospace;
+            font-size: 12.5px;
+            height: 100vh;
+            padding: 16px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            overflow: hidden;
+        }
+        .terminal {
+            background: var(--pane-bg);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+        .titlebar {
+            height: 38px;
+            background: #21262d;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            gap: 8px;
+            flex-shrink: 0;
+            user-select: none;
+        }
+        .traffic-lights { display: flex; gap: 6px; }
+        .traffic-lights span { width: 12px; height: 12px; border-radius: 50%; }
+        .tl-red { background: #ff5f57; }
+        .tl-yellow { background: #febc2e; }
+        .tl-green { background: #28c840; }
+        .titlebar-text {
+            flex: 1;
+            text-align: center;
+            font-size: 12px;
+            color: var(--dim);
+            font-weight: 500;
+        }
+        .content {
+            flex: 1;
+            padding: 12px 14px;
+            overflow-y: auto;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .content::-webkit-scrollbar { width: 6px; }
+        .content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        .cursor {
+            display: inline-block;
+            width: 7px;
+            height: 14px;
+            background: var(--fg);
+            animation: blink 1s step-end infinite;
+            vertical-align: text-bottom;
+            margin-left: 1px;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+        .gemini-prompt { color: var(--gemini-accent); }
+        .claude-prompt { color: var(--claude-accent); }
+        .codex-prompt { color: var(--codex-accent); }
+        .user-input { color: #fff; font-weight: bold; }
+        .dim { color: var(--dim); }
+        .success { color: var(--green); }
+        .error { color: var(--red); }
+        .warning { color: var(--yellow); }
+        .bold { font-weight: bold; }
+        .badge {
+            display: inline-block;
+            padding: 0 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-green { background: rgba(63,185,80,0.15); color: var(--green); }
+        .badge-yellow { background: rgba(210,153,34,0.15); color: var(--yellow); }
+        .tool-call {
+            color: var(--dim);
+            border-left: 2px solid currentColor;
+            padding-left: 8px;
+            margin: 4px 0;
+            font-size: 11.5px;
+        }
+        .claude-tool {
+            color: var(--dim);
+            border-left: 2px solid var(--claude-accent);
+            padding-left: 8px;
+            margin: 4px 0;
+        }
+        .progress-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--gemini-accent), var(--claude-accent), var(--codex-accent));
+            width: 0%;
+            transition: width 0.3s linear;
+        }
+    </style>
+</head>
+<body>
+    <div class="terminal">
+        <div class="titlebar">
+            <div class="traffic-lights"><span class="tl-red"></span><span class="tl-yellow"></span><span class="tl-green"></span></div>
+            <div class="titlebar-text"><span style="color:var(--gemini-accent)">&#10022;</span> Gemini CLI</div>
+        </div>
+        <div class="content" id="term-gemini"></div>
+    </div>
+    <div class="terminal">
+        <div class="titlebar">
+            <div class="traffic-lights"><span class="tl-red"></span><span class="tl-yellow"></span><span class="tl-green"></span></div>
+            <div class="titlebar-text"><span style="color:var(--claude-accent)">&#10095;</span> Claude Code</div>
+        </div>
+        <div class="content" id="term-claude"></div>
+    </div>
+    <div class="terminal">
+        <div class="titlebar">
+            <div class="traffic-lights"><span class="tl-red"></span><span class="tl-yellow"></span><span class="tl-green"></span></div>
+            <div class="titlebar-text"><span style="color:var(--codex-accent)">&#9671;</span> Codex CLI</div>
+        </div>
+        <div class="content" id="term-codex"></div>
+    </div>
+    <div class="progress-bar" id="progress"></div>
+
+    <script>
+        const terms = {
+            gemini: document.getElementById('term-gemini'),
+            claude: document.getElementById('term-claude'),
+            codex: document.getElementById('term-codex')
+        };
+        const cursors = {};
+        for (const id of Object.keys(terms)) {
+            const c = document.createElement('span');
+            c.className = 'cursor';
+            cursors[id] = c;
+        }
+
+        function el(tag, cls, text) {
+            const e = document.createElement(tag);
+            if (cls) e.className = cls;
+            if (text !== undefined) e.textContent = text;
+            return e;
+        }
+        function appendTo(agent, node) {
+            const term = terms[agent];
+            if (cursors[agent].parentNode) cursors[agent].remove();
+            term.appendChild(node);
+            term.appendChild(cursors[agent]);
+            term.scrollTop = term.scrollHeight;
+        }
+        function line(agent, text, cls) { appendTo(agent, el('div', cls || '', text || '')); }
+        function html(agent, markup) {
+            const d = document.createElement('div');
+            d.innerHTML = markup;
+            appendTo(agent, d);
+        }
+        function toolCall(agent, markup) {
+            const d = document.createElement('div');
+            d.className = 'tool-call';
+            d.innerHTML = markup;
+            appendTo(agent, d);
+        }
+        function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+        function typeText(agent, text, speed) {
+            speed = speed || 28;
+            return new Promise(resolve => {
+                const term = terms[agent];
+                if (cursors[agent].parentNode) cursors[agent].remove();
+                let i = 0;
+                function step() {
+                    if (i < text.length) {
+                        term.insertBefore(document.createTextNode(text[i]), cursors[agent].parentNode ? cursors[agent] : null);
+                        if (!cursors[agent].parentNode) term.appendChild(cursors[agent]);
+                        term.scrollTop = term.scrollHeight;
+                        i++;
+                        setTimeout(step, speed + Math.random() * 12);
+                    } else { resolve(); }
+                }
+                term.appendChild(cursors[agent]);
+                step();
+            });
+        }
+        async function typeCmd(agent, cmd, speed) {
+            await typeText(agent, cmd, speed || 35);
+            line(agent, '');
+        }
+        async function thinking(agent, ms) {
+            const d = el('span', 'dim', 'Thinking');
+            appendTo(agent, d);
+            let dots = 0;
+            const iv = setInterval(() => { dots = (dots + 1) % 4; d.textContent = 'Thinking' + '.'.repeat(dots); }, 300);
+            await wait(ms);
+            clearInterval(iv);
+            d.remove();
+        }
+
+        async function runDemo() {
+            const progressBar = document.getElementById('progress');
+            const totalDuration = 22000;
+            const startTime = Date.now();
+            const progressInterval = setInterval(() => {
+                const pct = Math.min(((Date.now() - startTime) / totalDuration) * 100, 100);
+                progressBar.style.width = pct + '%';
+                if (pct >= 100) clearInterval(progressInterval);
+            }, 100);
+
+            // === INIT (0-1.5s) ===
+            line('gemini', '');
+            html('gemini', '<span class="dim">Gemini CLI v2.0 &mdash; ~/projects/checkout</span>');
+            line('gemini', '');
+            line('claude', '');
+            html('claude', '<span class="dim">Claude Code v1.0 &mdash; ~/projects/checkout</span>');
+            line('claude', '');
+            line('codex', '');
+            html('codex', '<span class="dim">Codex CLI &mdash; Agent Bridge v0.4.1</span>');
+            html('codex', '<span class="dim">Monitoring 2 agents...</span>');
+            line('codex', '');
+            await wait(1500);
+
+            // === SCENE 1: Gemini designs checkout API (1.5-4s) ===
+            html('gemini', '<span class="gemini-prompt">user@checkout &#9656;</span> <span class="user-input">Design checkout API endpoints</span>');
+            line('gemini', '');
+            await wait(500);
+            await thinking('gemini', 1200);
+            line('gemini', '');
+            html('gemini', '<span class="gemini-prompt">&#10022;</span> Proposed endpoints:');
+            line('gemini', '');
+            html('gemini', [
+                '  POST /api/checkout/create',
+                '  POST /api/checkout/confirm',
+                '  GET  /api/checkout/:id/status',
+            ].join('\n'));
+            line('gemini', '');
+            html('gemini', '<span class="dim">Each returns standard envelope with idempotency key support.</span>');
+            line('gemini', '');
+
+            await wait(500);
+
+            // === SCENE 2: Claude implements payment (4-7s) ===
+            html('claude', '<span class="claude-prompt">~/checkout</span> <span class="dim">$</span> <span class="user-input">Implement payment integration</span>');
+            line('claude', '');
+            await wait(400);
+            await thinking('claude', 1000);
+            line('claude', '');
+            html('claude', '<div class="claude-tool">&#128269; Read checkout/routes.ts</div>');
+            await wait(300);
+            html('claude', '<div class="claude-tool">&#9998; Write checkout/stripe.ts</div>');
+            await wait(300);
+            html('claude', '<div class="claude-tool">&#9998; Write checkout/webhooks.ts</div>');
+            await wait(400);
+            line('claude', '');
+            line('claude', 'Wired Stripe payment intents + webhook handler.');
+            line('claude', 'Listening for checkout.session.completed events.');
+            html('claude', '<span class="dim">Idempotency enforced via provider_event_id.</span>');
+            line('claude', '');
+
+            await wait(500);
+
+            // === SCENE 3: Codex — "What are they doing?" (7-10s) ===
+            html('codex', '<span class="codex-prompt">user</span> <span class="user-input">What are Claude and Gemini doing on checkout?</span>');
+            line('codex', '');
+            await wait(400);
+
+            toolCall('codex', 'bridge read --agent claude --cwd ~/projects/checkout --last 3 --json');
+            await wait(250);
+            toolCall('codex', 'bridge read --agent gemini --cwd ~/projects/checkout --last 3 --json');
+            await wait(250);
+            toolCall('codex', 'bridge search "checkout" --agent claude --json');
+            line('codex', '');
+
+            await wait(800);
+            await thinking('codex', 1200);
+            line('codex', '');
+
+            // === SCENE 4: Natural language answer (10-14s) ===
+            html('codex', [
+                '<span class="badge badge-green">Evidence-backed</span>',
+                '',
+                '<span class="bold">Gemini</span> designed 3 REST endpoints for checkout:',
+                '  create, confirm, and status — with idempotency keys.',
+                '',
+                '<span class="bold">Claude</span> is implementing Stripe integration:',
+                '  payment intents + webhook handler for session.completed.',
+                '  Idempotency enforced via provider_event_id.',
+                '',
+                'Sources: <span class="dim">[gemini:checkout-api] [claude:stripe-impl]</span>',
+            ].join('\n'));
+            line('codex', '');
+
+            await wait(1500);
+
+            // === SCENE 5: Follow-up — alignment check (14-18s) ===
+            html('codex', '<span class="codex-prompt">user</span> <span class="user-input">Are they aligned on payment confirmation?</span>');
+            line('codex', '');
+            await wait(400);
+
+            toolCall('codex', 'bridge compare --source gemini --source claude --normalize --json');
+            line('codex', '');
+
+            await wait(800);
+            await thinking('codex', 1200);
+            line('codex', '');
+
+            html('codex', [
+                '<span class="badge badge-yellow">Divergence: P2</span>',
+                '',
+                'Gemini\'s confirm endpoint expects a synchronous response,',
+                'but Claude\'s Stripe webhook fires asynchronously.',
+                '',
+                '<span class="bold">Recommendation:</span> Add a polling/webhook pattern',
+                'to the confirm flow so the client knows when payment',
+                'actually completes.',
+                '',
+                'Sources: <span class="dim">[gemini:checkout-api] [claude:stripe-impl]</span>',
+            ].join('\n'));
+            line('codex', '');
+
+            await wait(2000);
+
+            clearInterval(progressInterval);
+            progressBar.style.width = '100%';
+        }
+
+        setTimeout(runDemo, 600);
+    </script>
+</body>
+</html>

@@ -33,6 +33,9 @@
     "check:readme": "bash scripts/check_readme_examples.sh",
     "check:package": "bash scripts/check_package_contents.sh",
     "validate:schemas": "bash scripts/validate_schemas.sh",
-    "check": "npm run conformance && npm run check:readme && npm run check:package && npm run validate:schemas"
+    "check": "npm run conformance && npm run check:readme && npm run check:package && npm run validate:schemas",
+    "demo:status": "node scripts/record_demo.js --input fixtures/demo/player-status.html --output docs/demo-status.webp --duration-ms 22000",
+    "demo:handoff": "node scripts/record_demo.js --input fixtures/demo/player-handoff.html --output docs/demo-handoff.webp --duration-ms 20000",
+    "demo:setup": "node scripts/record_demo.js --input fixtures/demo/player-setup.html --output docs/demo-setup.webp --duration-ms 15000"
   }
 }
