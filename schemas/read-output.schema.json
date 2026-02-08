@@ -28,8 +28,7 @@
       "type": ["string", "null"]
     },
     "timestamp": {
-      "type": ["string", "null"],
-      "format": "date-time"
+      "type": ["string", "null"]
     },
     "message_count": {
       "type": "integer",

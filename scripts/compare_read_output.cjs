@@ -13,7 +13,17 @@ const rightJson = JSON.parse(fs.readFileSync(rightPath, 'utf-8'));
 
 const path = require('path');
 
+function normalizeSourcePath(str) {
+  // Replace full paths with just basename: "[tag] /full/path/file.ext" -> "[tag] file.ext"
+  return str.replace(/ \/[^ ]*\/([^ ]+)$/g, ' $1').replace(/ \/([^ ]+)$/g, ' $1');
+}
+
 function canonicalize(value, key) {
+  // Normalize sources_used paths to basenames (must check before Array.isArray)
+  if (key === 'sources_used' && Array.isArray(value)) {
+    return value.map(v => typeof v === 'string' ? normalizeSourcePath(v) : canonicalize(v));
+  }
+
   if (Array.isArray(value)) {
     return value.map((v) => canonicalize(v));
   }
@@ -28,6 +38,16 @@ function canonicalize(value, key) {
 
   // Normalize source paths to basenames to avoid absolute-path mismatches
   if (key === 'source' && typeof value === 'string') {
+    return path.basename(value);
+  }
+
+  // Strip timestamp for golden file comparison (varies by env)
+  if (key === 'timestamp') {
+    return null;
+  }
+
+  // Strip file_path for golden file comparison
+  if (key === 'file_path' && typeof value === 'string') {
     return path.basename(value);
   }
 

@@ -33,7 +33,7 @@ impl BridgeErrorCode {
 
 pub fn classify_error(message: &str) -> BridgeErrorCode {
     let lower = message.to_ascii_lowercase();
-    if lower.contains("unsupported agent") {
+    if lower.contains("unsupported agent") || lower.contains("unknown agent") {
         BridgeErrorCode::UnsupportedAgent
     } else if lower.contains("unsupported mode") {
         BridgeErrorCode::UnsupportedMode
@@ -976,8 +976,16 @@ fn redact_assignment_for_key(input: &str, keyword: &str) -> String {
         }
 
         if idx > value_start {
-            out.replace_range(value_start..idx, "[REDACTED]");
-            search_from = value_start + "[REDACTED]".len();
+            // Include closing quote in replacement range if present
+            let end = if quoted && idx < out.len() && out.as_bytes()[idx] as char == quote {
+                idx + 1
+            } else {
+                idx
+            };
+            // Replace from keyword start through end of value (including quotes) with keyword=[REDACTED]
+            let replacement = format!("{}=[REDACTED]", keyword);
+            out.replace_range(start..end, &replacement);
+            search_from = start + replacement.len();
         } else {
             search_from = idx.saturating_add(1);
         }
@@ -988,7 +996,7 @@ fn redact_assignment_for_key(input: &str, keyword: &str) -> String {
 
 // --- List functions ---
 
-pub fn list_codex_sessions(cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
+pub fn list_codex_sessions(_cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
     let base_dir = codex_base_dir();
     if !base_dir.exists() { return Ok(Vec::new()); }
     let files = collect_matching_files(&base_dir, true, &|p| has_extension(p, "jsonl"))?;
@@ -1007,7 +1015,7 @@ pub fn list_codex_sessions(cwd: &str, limit: usize) -> Result<Vec<serde_json::Va
     Ok(entries)
 }
 
-pub fn list_claude_sessions(cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
+pub fn list_claude_sessions(_cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
     let base_dir = claude_base_dir();
     if !base_dir.exists() { return Ok(Vec::new()); }
     let files = collect_matching_files(&base_dir, true, &|p| has_extension(p, "jsonl"))?;
@@ -1050,6 +1058,144 @@ pub fn list_gemini_sessions(cwd: &str, limit: usize) -> Result<Vec<serde_json::V
     Ok(entries)
 }
 
+// --- Search functions ---
+
+pub fn search_codex_sessions(query: &str, _cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
+    let base_dir = codex_base_dir();
+    if !base_dir.exists() { return Ok(Vec::new()); }
+    let files = collect_matching_files(&base_dir, true, &|p| has_extension(p, "jsonl"))?;
+    
+    let query_lower = query.to_ascii_lowercase();
+    let mut entries = Vec::new();
+    
+    for file in files {
+        if entries.len() >= limit { break; }
+        
+        let content = match fs::read_to_string(&file.path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        
+        if content.to_ascii_lowercase().contains(&query_lower) {
+            let file_cwd = get_codex_session_cwd(&file.path);
+            let session_id = file.path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string();
+            entries.push(serde_json::json!({
+                "session_id": session_id,
+                "agent": "codex",
+                "cwd": file_cwd.map(|p| p.to_string_lossy().to_string()),
+                "modified_at": file_modified_iso(&file.path),
+                "file_path": file.path.to_string_lossy().to_string(),
+            }));
+        }
+    }
+    Ok(entries)
+}
+
+pub fn search_claude_sessions(query: &str, _cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
+    let base_dir = claude_base_dir();
+    if !base_dir.exists() { return Ok(Vec::new()); }
+    let files = collect_matching_files(&base_dir, true, &|p| has_extension(p, "jsonl"))?;
+    
+    let query_lower = query.to_ascii_lowercase();
+    let mut entries = Vec::new();
+    
+    for file in files {
+        if entries.len() >= limit { break; }
+        
+        let content = match fs::read_to_string(&file.path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        
+        if content.to_ascii_lowercase().contains(&query_lower) {
+            let file_cwd = get_claude_session_cwd(&file.path);
+            let session_id = file.path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string();
+            entries.push(serde_json::json!({
+                "session_id": session_id,
+                "agent": "claude",
+                "cwd": file_cwd.map(|p| p.to_string_lossy().to_string()),
+                "modified_at": file_modified_iso(&file.path),
+                "file_path": file.path.to_string_lossy().to_string(),
+            }));
+        }
+    }
+    Ok(entries)
+}
+
+pub fn search_gemini_sessions(query: &str, cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
+    let dirs = resolve_gemini_chat_dirs(None, cwd)?;
+    let mut candidates = Vec::new();
+    for dir in &dirs {
+        let mut files = collect_matching_files(dir, false, &|p| {
+            has_extension(p, "json") && p.file_name().and_then(|n| n.to_str()).map(|n| n.starts_with("session-")).unwrap_or(false)
+        })?;
+        candidates.append(&mut files);
+    }
+    sort_files_by_mtime_desc(&mut candidates);
+    
+    let query_lower = query.to_ascii_lowercase();
+    let mut entries = Vec::new();
+    
+    for file in candidates {
+        if entries.len() >= limit { break; }
+        
+        let content = match fs::read_to_string(&file.path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        
+        if content.to_ascii_lowercase().contains(&query_lower) {
+            let session_id = file.path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string();
+            entries.push(serde_json::json!({
+                "session_id": session_id,
+                "agent": "gemini",
+                "cwd": serde_json::Value::Null,
+                "modified_at": file_modified_iso(&file.path),
+                "file_path": file.path.to_string_lossy().to_string(),
+            }));
+        }
+    }
+    Ok(entries)
+}
+
+pub fn search_cursor_sessions(query: &str, _cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
+    let base_dir = cursor_base_dir();
+    if !base_dir.exists() { return Ok(Vec::new()); }
+
+    let workspaces_dir = base_dir.join("User").join("workspaceStorage");
+    if !workspaces_dir.exists() { return Ok(Vec::new()); }
+
+    let files = collect_matching_files(&workspaces_dir, true, &|p| {
+        let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        (name.ends_with(".json") || name.ends_with(".jsonl"))
+            && (name.contains("chat") || name.contains("composer") || name.contains("conversation"))
+    })?;
+
+    let query_lower = query.to_ascii_lowercase();
+    let mut entries = Vec::new();
+
+    for file in files {
+        if entries.len() >= limit { break; }
+
+        let content = match fs::read_to_string(&file.path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        if content.to_ascii_lowercase().contains(&query_lower) {
+            let session_id = file.path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string();
+            entries.push(serde_json::json!({
+                "session_id": session_id,
+                "agent": "cursor",
+                "cwd": serde_json::Value::Null,
+                "modified_at": file_modified_iso(&file.path),
+                "file_path": file.path.to_string_lossy().to_string(),
+            }));
+        }
+    }
+    Ok(entries)
+}
+
 // --- Cursor support ---
 
 fn cursor_base_dir() -> PathBuf {
@@ -1069,7 +1215,7 @@ fn cursor_base_dir() -> PathBuf {
         })
 }
 
-pub fn read_cursor_session(id: Option<&str>, cwd: &str) -> Result<Session> {
+pub fn read_cursor_session(id: Option<&str>, _cwd: &str) -> Result<Session> {
     let base_dir = cursor_base_dir();
     if !base_dir.exists() {
         return Err(anyhow!("No Cursor session found. Data directory not found: {}", base_dir.display()));
@@ -1148,7 +1294,7 @@ pub fn read_cursor_session(id: Option<&str>, cwd: &str) -> Result<Session> {
     })
 }
 
-pub fn list_cursor_sessions(cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
+pub fn list_cursor_sessions(_cwd: &str, limit: usize) -> Result<Vec<serde_json::Value>> {
     let base_dir = cursor_base_dir();
     if !base_dir.exists() { return Ok(Vec::new()); }
 
@@ -1212,5 +1358,78 @@ mod tests {
         let input = "Bearer short and Bearer abcdefghijklmnop";
         let output = redact_sensitive_text(input);
         assert_eq!(output, "Bearer short and Bearer [REDACTED]");
+    }
+
+    #[test]
+    fn redacts_openai_keys() {
+        let input = "key is sk-abcdefghij0123456789abcdefghij";
+        let output = redact_sensitive_text(input);
+        assert!(output.contains("sk-[REDACTED]"), "got: {}", output);
+        assert!(!output.contains("abcdefghij0123456789"));
+    }
+
+    #[test]
+    fn redacts_aws_access_keys() {
+        let input = "aws key: AKIA1234567890ABCDEF";
+        let output = redact_sensitive_text(input);
+        assert!(output.contains("AKIA[REDACTED]"), "got: {}", output);
+        assert!(!output.contains("1234567890ABCDEF"));
+    }
+
+    #[test]
+    fn redacts_api_key_assignments() {
+        let input = "api_key=\"super-secret-123\"";
+        let output = redact_sensitive_text(input);
+        assert!(output.contains("[REDACTED]"), "got: {}", output);
+        assert!(!output.contains("super-secret-123"));
+    }
+
+    #[test]
+    fn redacts_token_with_colon_separator() {
+        let input = "token: 'my_token_value'";
+        let output = redact_sensitive_text(input);
+        assert!(output.contains("[REDACTED]"), "got: {}", output);
+        assert!(!output.contains("my_token_value"));
+    }
+
+    #[test]
+    fn redacts_password_assignment() {
+        let input = "password=hunter2";
+        let output = redact_sensitive_text(input);
+        assert!(output.contains("[REDACTED]"), "got: {}", output);
+        assert!(!output.contains("hunter2"));
+    }
+
+    #[test]
+    fn redacts_secret_with_spaces() {
+        let input = "secret : \"s3cr3t-val\"";
+        let output = redact_sensitive_text(input);
+        assert!(output.contains("[REDACTED]"), "got: {}", output);
+        assert!(!output.contains("s3cr3t-val"));
+    }
+
+    #[test]
+    fn combined_redaction_stress() {
+        let input = "sk-abc12345678901234567890 AKIA1234567890ABCDEF Bearer eyJhbGciOiJIUzI1NiJ9.test api_key=\"super-secret-123\" token: 'val' password=hunter2 secret : \"s3cr3t\"";
+        let output = redact_sensitive_text(input);
+        assert!(output.contains("sk-[REDACTED]"), "missing sk redaction: {}", output);
+        assert!(output.contains("AKIA[REDACTED]"), "missing AWS redaction: {}", output);
+        assert!(output.contains("Bearer [REDACTED]"), "missing Bearer redaction: {}", output);
+        assert!(!output.contains("super-secret-123"), "api_key not redacted: {}", output);
+        assert!(!output.contains("hunter2"), "password not redacted: {}", output);
+    }
+
+    #[test]
+    fn bearer_case_insensitive() {
+        let input = "BEARER abcdefghijklmnop and bearer zyxwvutsrqpomn";
+        let output = redact_sensitive_text(input);
+        assert_eq!(output, "Bearer [REDACTED] and Bearer [REDACTED]");
+    }
+
+    #[test]
+    fn no_false_positive_on_short_sk() {
+        let input = "sk-short is fine";
+        let output = redact_sensitive_text(input);
+        assert_eq!(output, "sk-short is fine");
     }
 }

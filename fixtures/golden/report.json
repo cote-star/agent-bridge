@@ -1,0 +1,31 @@
+{
+  "mode": "verify",
+  "task": "Validate fixture implementation parity",
+  "success_criteria": [
+    "All sources readable",
+    "No divergence in fixture outputs"
+  ],
+  "sources_used": [
+    "[codex:codex-fi] session-codex-fixture-0001.jsonl",
+    "[gemini:gemini-f] session-gemini-fixture-0001.json",
+    "[claude:claude-f] session-claude-fixture-0001.jsonl"
+  ],
+  "verdict": "FAIL",
+  "findings": [
+    {
+      "severity": "P1",
+      "summary": "Divergent agent outputs detected",
+      "evidence": [
+        "[codex:codex-fi]",
+        "[gemini:gemini-f]",
+        "[claude:claude-f]"
+      ],
+      "confidence": 0.75
+    }
+  ],
+  "recommended_next_actions": [
+    "Inspect full transcripts for diverging sources before final decisions.",
+    "Verify recommendations against constraints: No cloud dependencies; Keep output concise."
+  ],
+  "open_questions": []
+}

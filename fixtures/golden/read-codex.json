@@ -1,0 +1,11 @@
+{
+  "agent": "codex",
+  "content": "Codex fixture assistant output.",
+  "cwd": "/workspace/demo",
+  "message_count": 1,
+  "messages_returned": 1,
+  "session_id": "session-codex-fixture-0001",
+  "source": "session-codex-fixture-0001.jsonl",
+  "timestamp": null,
+  "warnings": []
+}

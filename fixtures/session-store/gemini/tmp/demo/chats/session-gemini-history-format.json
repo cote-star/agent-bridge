@@ -1,0 +1,7 @@
+{
+  "sessionId": "gemini-history-format",
+  "history": [
+    {"role": "user", "parts": [{"text": "What is 2+2?"}]},
+    {"role": "model", "parts": [{"text": "4"}]}
+  ]
+}

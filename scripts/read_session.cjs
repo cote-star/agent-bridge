@@ -296,7 +296,7 @@ function redactSensitiveText(input) {
 }
 
 function classifyError(message) {
-  if (/unsupported agent/i.test(message)) return 'UNSUPPORTED_AGENT';
+  if (/unsupported agent/i.test(message) || /unknown agent/i.test(message)) return 'UNSUPPORTED_AGENT';
   if (/unsupported mode/i.test(message)) return 'UNSUPPORTED_MODE';
   if (/no .* session found/i.test(message)) return 'NOT_FOUND';
   if (/not found/i.test(message)) return 'NOT_FOUND';

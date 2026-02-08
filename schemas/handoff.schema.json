@@ -48,7 +48,7 @@
         "properties": {
           "agent": {
             "type": "string",
-            "enum": ["codex", "gemini", "claude"]
+            "enum": ["codex", "gemini", "claude", "cursor"]
           },
           "session_id": { "type": ["string", "null"] },
           "current_session": { "type": "boolean" },

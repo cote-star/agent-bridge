@@ -1,0 +1,11 @@
+{
+  "agent": "gemini",
+  "content": "Gemini fixture assistant output.",
+  "cwd": null,
+  "message_count": 1,
+  "messages_returned": 1,
+  "session_id": "gemini-fixture-0001",
+  "source": "session-gemini-fixture-0001.json",
+  "timestamp": null,
+  "warnings": []
+}

@@ -1,0 +1,30 @@
+{
+  "mode": "analyze",
+  "task": "Compare agent outputs",
+  "success_criteria": [
+    "Identify agreements and contradictions",
+    "Highlight unavailable sources"
+  ],
+  "sources_used": [
+    "[codex:codex-fi] session-codex-fixture-0001.jsonl",
+    "[gemini:gemini-f] session-gemini-fixture-0001.json",
+    "[claude:claude-f] session-claude-fixture-0001.jsonl"
+  ],
+  "verdict": "ANALYSIS_COMPLETE",
+  "findings": [
+    {
+      "severity": "P1",
+      "summary": "Divergent agent outputs detected",
+      "evidence": [
+        "[codex:codex-fi]",
+        "[gemini:gemini-f]",
+        "[claude:claude-f]"
+      ],
+      "confidence": 0.75
+    }
+  ],
+  "recommended_next_actions": [
+    "Inspect full transcripts for diverging sources before final decisions."
+  ],
+  "open_questions": []
+}

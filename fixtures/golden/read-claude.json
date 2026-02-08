@@ -1,0 +1,11 @@
+{
+  "agent": "claude",
+  "content": "Claude fixture assistant output.",
+  "cwd": "/workspace/demo",
+  "message_count": 1,
+  "messages_returned": 1,
+  "session_id": "session-claude-fixture-0001",
+  "source": "session-claude-fixture-0001.jsonl",
+  "timestamp": null,
+  "warnings": []
+}

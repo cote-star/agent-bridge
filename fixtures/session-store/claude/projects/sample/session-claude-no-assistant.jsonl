@@ -1,0 +1,2 @@
+{"cwd":"/workspace/demo"}
+{"type":"human","message":{"role":"user","content":[{"type":"text","text":"User message only, no assistant response."}]}}

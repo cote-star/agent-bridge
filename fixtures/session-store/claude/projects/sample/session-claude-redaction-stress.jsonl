@@ -1,0 +1,2 @@
+{"cwd":"/workspace/demo"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Here are some secrets: sk-abc12345678901234567890 and AKIA1234567890ABCDEF and Bearer eyJhbGciOiJIUzI1NiJ9.test and api_key=\"super-secret-123\" and token: 'my_token_value' and password=hunter2 and apikey=foo123bar and secret : \"s3cr3t-val\""}]}}

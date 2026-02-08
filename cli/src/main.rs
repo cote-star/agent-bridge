@@ -1,3 +1,4 @@
+mod adapters;
 mod agents;
 mod report;
 mod utils;
@@ -95,6 +96,29 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// Search sessions for a keyword
+    Search {
+        /// Keyword to search for
+        #[arg(index = 1)]
+        query: String,
+
+        /// Agent to search
+        #[arg(long, value_enum)]
+        agent: AgentType,
+
+        /// Working directory to scope search
+        #[arg(long)]
+        cwd: Option<String>,
+
+        /// Maximum number of sessions to return
+        #[arg(long, default_value = "10")]
+        limit: usize,
+
+        /// Emit structured JSON instead of text
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
@@ -106,7 +130,31 @@ enum AgentType {
 }
 
 fn main() {
-    let cli = Cli::parse();
+    let cli = match Cli::try_parse() {
+        Ok(c) => c,
+        Err(e) => {
+            // If --json was passed on the command line, emit structured error
+            let raw_args: Vec<String> = std::env::args().collect();
+            let has_json = raw_args.iter().any(|a| a == "--json");
+            if has_json {
+                let msg = e.to_string();
+                // Detect unsupported agent from clap's error message
+                let code = if msg.contains("invalid value") && msg.contains("--agent") {
+                    agents::BridgeErrorCode::UnsupportedAgent
+                } else {
+                    agents::classify_error(&msg)
+                };
+                let error_json = serde_json::json!({
+                    "error_code": code.as_str(),
+                    "message": msg.to_string().lines().next().unwrap_or(""),
+                });
+                println!("{}", serde_json::to_string_pretty(&error_json).unwrap_or_default());
+                std::process::exit(1);
+            } else {
+                e.exit();
+            }
+        }
+    };
     let json_mode = is_json_mode(&cli.command);
 
     if let Err(err) = run(cli) {
@@ -131,6 +179,7 @@ fn is_json_mode(command: &Commands) -> bool {
         Commands::Compare { json, .. } => *json,
         Commands::Report { json, .. } => *json,
         Commands::List { json, .. } => *json,
+        Commands::Search { json, .. } => *json,
     }
 }
 
@@ -213,6 +262,23 @@ fn run(cli: Cli) -> Result<()> {
                 AgentType::Gemini => agents::list_gemini_sessions(&effective_cwd, limit)?,
                 AgentType::Claude => agents::list_claude_sessions(&effective_cwd, limit)?,
                 AgentType::Cursor => agents::list_cursor_sessions(&effective_cwd, limit)?,
+            };
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&entries)?);
+            } else {
+                for entry in &entries {
+                    println!("{}", serde_json::to_string(entry).unwrap_or_default());
+                }
+            }
+        }
+        Commands::Search { query, agent, cwd, limit, json } => {
+            let effective_cwd = effective_cwd(cwd);
+            let entries = match agent {
+                AgentType::Codex => agents::search_codex_sessions(&query, &effective_cwd, limit)?,
+                AgentType::Gemini => agents::search_gemini_sessions(&query, &effective_cwd, limit)?,
+                AgentType::Claude => agents::search_claude_sessions(&query, &effective_cwd, limit)?,
+                AgentType::Cursor => agents::search_cursor_sessions(&query, &effective_cwd, limit)?,
             };
 
             if json {

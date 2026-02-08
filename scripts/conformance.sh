@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STORE="$ROOT/fixtures/session-store"
+GOLDEN="$ROOT/fixtures/golden"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -33,6 +34,12 @@ run_read_case() {
   "${rust_cmd[@]}" > "$rust_out"
 
   node "$ROOT/scripts/compare_read_output.cjs" "$node_out" "$rust_out" "read-${label}"
+
+  # Golden file diff
+  local golden_file="$GOLDEN/read-${agent}.json"
+  if [[ -f "$golden_file" ]]; then
+    node "$ROOT/scripts/compare_read_output.cjs" "$node_out" "$golden_file" "golden-read-${label}"
+  fi
 }
 
 run_compare_case() {
@@ -58,6 +65,11 @@ run_compare_case() {
     --json > "$rust_out"
 
   node "$ROOT/scripts/compare_read_output.cjs" "$node_out" "$rust_out" "compare"
+
+  # Golden file diff
+  if [[ -f "$GOLDEN/compare.json" ]]; then
+    node "$ROOT/scripts/compare_read_output.cjs" "$node_out" "$GOLDEN/compare.json" "golden-compare"
+  fi
 }
 
 run_report_case() {
@@ -76,6 +88,11 @@ run_report_case() {
   cargo run --quiet --manifest-path "$ROOT/cli/Cargo.toml" -- report --handoff "$handoff" --json > "$rust_out"
 
   node "$ROOT/scripts/compare_read_output.cjs" "$node_out" "$rust_out" "report"
+
+  # Golden file diff
+  if [[ -f "$GOLDEN/report.json" ]]; then
+    node "$ROOT/scripts/compare_read_output.cjs" "$node_out" "$GOLDEN/report.json" "golden-report"
+  fi
 }
 
 run_read_case codex codex-fixture Codex
@@ -84,4 +101,4 @@ run_read_case claude claude-fixture Claude
 run_compare_case
 run_report_case
 
-echo "Conformance complete: Node and Rust outputs match for read/compare/report."
+echo "Conformance complete: Node and Rust outputs match for read/compare/report (including golden file diffs)."
