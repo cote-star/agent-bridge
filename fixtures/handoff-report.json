@@ -1,0 +1,32 @@
+{
+  "mode": "verify",
+  "task": "Validate fixture implementation parity",
+  "success_criteria": [
+    "All sources readable",
+    "No divergence in fixture outputs"
+  ],
+  "sources": [
+    {
+      "agent": "codex",
+      "session_id": "codex-fixture",
+      "current_session": false,
+      "cwd": "/workspace/demo"
+    },
+    {
+      "agent": "gemini",
+      "session_id": "gemini-fixture",
+      "current_session": false,
+      "cwd": "/workspace/demo"
+    },
+    {
+      "agent": "claude",
+      "session_id": "claude-fixture",
+      "current_session": false,
+      "cwd": "/workspace/demo"
+    }
+  ],
+  "constraints": [
+    "No cloud dependencies",
+    "Keep output concise"
+  ]
+}

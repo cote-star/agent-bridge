@@ -1,0 +1,7 @@
+{
+  "sessionId": "gemini-fixture-0001",
+  "messages": [
+    {"type": "user", "content": "hello"},
+    {"type": "gemini", "content": "Gemini fixture assistant output."}
+  ]
+}
