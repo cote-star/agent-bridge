@@ -1,111 +1,149 @@
 # Inter-Agent Bridge
 
-Inter-Agent Bridge is a lightweight protocol and reference implementation for reading cross-agent session context from Codex, Gemini, and Claude.
+![CI Status](https://github.com/cote-star/agent-bridge/actions/workflows/ci.yml/badge.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Version](https://img.shields.io/badge/version-0.2.0-green.svg)
 
-This repository ships two conformant implementations:
-- Node CLI (`bridge-node`)
-- Rust CLI (`bridge`)
+**Inter-Agent Bridge** is a lightweight local protocol and reference implementation for reading cross-agent session context. It enables AI agents (Codex, Gemini, Claude) to "read" each other's conversation history from local storage, facilitating coordination, verification, and steering without a centralized cloud service.
 
-Both are required to produce the same JSON output contract for `read`.
+## 🌟 Key Tenets
 
-## Protocol
-- Spec: `PROTOCOL.md`
-- Schemas: `schemas/`
+1.  **Local-First**: Reads directly from local session logs (`~/.codex/sessions`, etc.) by default. No data leaves your machine.
+2.  **Evidence-Based**: Every claim or summary must track back to a specific source session file.
+3.  **Privacy-Focused**: Automatically redacts sensitive keys (API keys, AWS tokens) before output.
+4.  **Dual Parity**: Ships with both **Node.js** and **Rust** CLIs that guarantee the same output contract.
 
-## Quick Start
+## 🏗️ Architecture
 
-### Node (local)
-```bash
-npm install
-node scripts/read_session.cjs --agent=codex
-node scripts/read_session.cjs --agent=gemini --json
+The bridge acts as a universal translator for agent session formats.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant BridgeCLI
+    participant Codex as ~/.codex/sessions
+    participant Gemini as ~/.gemini/tmp
+    participant Claude as ~/.claude/projects
+
+    User->>BridgeCLI: bridge read --agent codex --id "fix-bug"
+    BridgeCLI->>Codex: Scan & Parse JSONL
+    Codex-->>BridgeCLI: Raw Session Data
+    BridgeCLI->>BridgeCLI: Redact Secrets (sk-..., AKIA...)
+    BridgeCLI->>BridgeCLI: Format via Schema
+    BridgeCLI-->>User: Structured JSON Output
 ```
 
-Optional global install:
-```bash
-npm link
-bridge-node read --agent=claude --json
-```
+## 🚀 Feature Matrix
 
-### Rust (local)
-```bash
-cargo run --manifest-path cli/Cargo.toml -- read --agent codex
-cargo run --manifest-path cli/Cargo.toml -- read --agent gemini --json
-```
+| Feature            | Codex | Gemini | Claude |
+| :----------------- | :---: | :----: | :----: |
+| **Read Content**   |  ✅   |   ✅   |   ✅   |
+| **Auto-Discovery** |  ✅   |   ✅   |   ✅   |
+| **CWD Scoping**    |  ✅   |   ❌   |   ✅   |
+| **Comparisons**    |  ✅   |   ✅   |   ✅   |
 
-Optional install:
-```bash
-cargo install --path cli
-bridge read --agent claude --json
-```
+## 📦 Installation
 
-### Published Installs
-Node package:
+### Consumers (Users)
+
+Install the CLI tool globally to use it from your terminal.
+
+**Node.js**:
+
 ```bash
 npm install -g inter-agent-bridge-cli
 bridge-node read --agent=codex --json
 ```
 
-Rust crate:
+**Rust (Recommended for Performance)**:
+
 ```bash
 cargo install bridge-cli
 bridge read --agent codex --json
 ```
 
-## Command Contract
+### Contributors (Developers)
+
+Clone the repository to build from source.
+
+**Node**:
+
 ```bash
-bridge read --agent <codex|gemini|claude> [--id=<substring>] [--cwd=<path>] [--chats-dir=<path>] [--json]
-bridge compare --source <agent[:session-substring]>... [--cwd=<path>] [--json]
-bridge report --handoff <handoff.json> [--cwd=<path>] [--json]
+npm install
+node scripts/read_session.cjs --agent=codex
 ```
 
-## JSON Output
-```json
-{
-  "agent": "codex",
-  "source": "/absolute/path/to/session",
-  "content": "last assistant/model output",
-  "warnings": []
-}
+**Rust**:
+
+```bash
+cargo run --manifest-path cli/Cargo.toml -- read --agent codex
 ```
 
-`bridge report --json` returns the schema in `schemas/report.schema.json`.
+## 📖 Usage
 
-## Environment Overrides
-Useful for tests, sandboxing, and non-default layouts:
-- `BRIDGE_CODEX_SESSIONS_DIR`
-- `BRIDGE_GEMINI_TMP_DIR`
-- `BRIDGE_CLAUDE_PROJECTS_DIR`
+### Reading a Session
 
-## Redaction
-Both implementations redact likely secrets in extracted content before output:
-- `sk-...` keys
-- `AKIA...` keys
-- bearer tokens
-- key-value secrets (`api_key`, `token`, `secret`, `password`)
+Get the last assistant message from a specific agent context.
 
-## Conformance
-Run shared fixture parity checks:
+```bash
+# Read from Codex (defaults to latest session)
+bridge read --agent codex
+
+# Read from Claude, scoped to current working directory
+bridge read --agent claude --cwd /path/to/project
+
+# Get machine-readable JSON output
+bridge read --agent gemini --json
+```
+
+### Comparing Agents (`analyze` mode)
+
+Compare outputs from multiple agents to detect divergence.
+
+```bash
+bridge compare --source codex:latest --source gemini:latest --json
+```
+
+### Reporting
+
+Generate a full coordination report from a handoff packet.
+
+```bash
+bridge report --handoff ./handoff_packet.json --json
+```
+
+## ⚙️ Configuration
+
+Override default paths using environment variables.
+
+| Variable                     | Description               | Default              |
+| :--------------------------- | :------------------------ | :------------------- |
+| `BRIDGE_CODEX_SESSIONS_DIR`  | Path to Codex sessions    | `~/.codex/sessions`  |
+| `BRIDGE_GEMINI_TMP_DIR`      | Path to Gemini temp chats | `~/.gemini/tmp`      |
+| `BRIDGE_CLAUDE_PROJECTS_DIR` | Path to Claude projects   | `~/.claude/projects` |
+
+## 🛠️ Development
+
+- **Protocol**: See [PROTOCOL.md](./PROTOCOL.md) for the CLI and JSON specification.
+- **Skills**: See [SKILL.md](./SKILL.md) for agentic capabilities.
+- **Release**: See [docs/release.md](./docs/release.md) for publishing workflows.
+
+### Conformance Testing
+
+Ensure both Node and Rust implementations return identical output for the same fixtures.
+
 ```bash
 bash scripts/conformance.sh
 ```
 
-This verifies Node and Rust return equivalent JSON for the same fixture sessions and commands.
+### Schema Validation
 
-Schema checks (handoff + generated outputs):
+Validate that generated reports match the JSON schema.
+
 ```bash
 bash scripts/validate_schemas.sh
 ```
 
-## Repository Layout
-- `scripts/read_session.cjs`: Node implementation
-- `cli/`: Rust implementation
-- `fixtures/session-store/`: shared test fixtures
-- `schemas/`: protocol schemas
-- `references/`: coordinator behavior guidance
+---
 
-## Release and Media
-- Release workflow and publish guide: `docs/release.md`
-- First public launch checklist: `docs/first-release-checklist.md`
-- Demo storyboard/script: `docs/video-demo.md`
-- Product explainer: `docs/explainer.md`
+_Maintained by the Agent Bridge Team._
