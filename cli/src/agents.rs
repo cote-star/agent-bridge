@@ -834,7 +834,13 @@ where
 }
 
 fn sort_files_by_mtime_desc(files: &mut [FileEntry]) {
-    files.sort_by(|a, b| b.mtime_ms.cmp(&a.mtime_ms));
+    files.sort_by(|a, b| {
+        b.mtime_ms.cmp(&a.mtime_ms).then_with(|| {
+            a.path
+                .to_string_lossy()
+                .cmp(&b.path.to_string_lossy())
+        })
+    });
 }
 
 fn has_extension(path: &Path, ext: &str) -> bool {

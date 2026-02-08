@@ -56,7 +56,12 @@ function collectMatchingFiles(dirPath, predicate, recursive = false) {
   }
 
   search(dirPath);
-  matches.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  matches.sort((a, b) => {
+    if (b.mtimeMs !== a.mtimeMs) {
+      return b.mtimeMs - a.mtimeMs;
+    }
+    return String(a.path).localeCompare(String(b.path));
+  });
   return matches;
 }
 
