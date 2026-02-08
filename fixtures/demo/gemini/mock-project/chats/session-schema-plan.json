@@ -1,0 +1,13 @@
+{
+  "sessionId": "schema-plan-123",
+  "messages": [
+    {
+      "type": "user",
+      "content": "Propose a User schema for the new auth system."
+    },
+    {
+      "type": "model",
+      "content": "Here is a proposed schema for the User table:\n\n```sql\nCREATE TABLE users (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  email VARCHAR(255) UNIQUE NOT NULL,\n  password_hash VARCHAR(255) NOT NULL,\n  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()\n);\n```\n\nI recommend using UUIDs for the primary key to avoid enumeration attacks."
+    }
+  ]
+}
