@@ -14,7 +14,3 @@ node_modules/
 # Demo recording (only docs/demo.webp is committed)
 fixtures/demo/
 scripts/record_demo.*
-
-# Internal dev docs (moved to wiki)
-references/
-docs/*.md
