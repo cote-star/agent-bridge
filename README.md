@@ -102,6 +102,10 @@ After `bridge setup`, provider instructions follow this behavior:
 
 The bridge sits between your agent and other agents' session logs. You talk to your agent — your agent talks to the bridge.
 
+Before/after view of manual handoffs vs bridge-mediated evidence flow:
+
+![Before/after workflow animation](./docs/silo-tax-before-after.webp)
+
 ```mermaid
 sequenceDiagram
     participant User
