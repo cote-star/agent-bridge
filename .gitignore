@@ -10,7 +10,19 @@ node_modules/
 
 # Editor
 .vscode/
+.idea/
+*.code-workspace
 
 # Demo recording temp artifacts
 docs/demo-*.tmp.webp
 fixtures/demo/tmp/
+
+# Local non-package artifacts
+blog/
+notes/
+drafts/
+research/
+scratch/
+tmp/
+.cache/
+*.log

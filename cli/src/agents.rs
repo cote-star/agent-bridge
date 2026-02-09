@@ -6,6 +6,9 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
+const MAX_FILE_SIZE: u64 = 50 * 1024 * 1024; // 50 MB
+const MAX_SCAN_FILES: usize = 1000;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BridgeErrorCode {
     NotFound,
@@ -470,6 +473,14 @@ fn parse_claude_jsonl(path: &Path, last_n: usize) -> Result<ParsedContent> {
 }
 
 fn parse_gemini_json(path: &Path, last_n: usize) -> Result<ParsedContent> {
+    let meta = fs::metadata(path)?;
+    if meta.len() > MAX_FILE_SIZE {
+        return Err(anyhow!(
+            "Skipped {} (exceeds {}MB size limit)",
+            path.display(),
+            MAX_FILE_SIZE / (1024 * 1024)
+        ));
+    }
     let raw_content = fs::read_to_string(path)?;
     let session: Value = serde_json::from_str(&raw_content)
         .map_err(|e| anyhow!("Failed to parse Gemini JSON: {}", e))?;
@@ -673,6 +684,14 @@ fn epoch_days_to_date(days: u64) -> (u64, u64, u64) {
 }
 
 fn read_jsonl_lines(path: &Path) -> Result<Vec<String>> {
+    let meta = fs::metadata(path)?;
+    if meta.len() > MAX_FILE_SIZE {
+        return Err(anyhow!(
+            "Skipped {} (exceeds {}MB size limit)",
+            path.display(),
+            MAX_FILE_SIZE / (1024 * 1024)
+        ));
+    }
     let file = fs::File::open(path)?;
     let reader = BufReader::new(file);
     Ok(reader.lines().map_while(Result::ok).collect())
@@ -717,9 +736,24 @@ fn get_claude_session_cwd(file_path: &Path) -> Option<PathBuf> {
     None
 }
 
+fn is_system_directory(dir: &Path) -> bool {
+    let s = dir.to_string_lossy();
+    let system_prefixes = ["/etc", "/usr", "/var", "/bin", "/sbin", "/System", "/Library",
+        "/Windows", "/Windows/System32", "/Program Files", "/Program Files (x86)"];
+    for prefix in system_prefixes {
+        if s == prefix || s.starts_with(&format!("{}/", prefix)) || s.starts_with(&format!("{}\\", prefix)) {
+            return true;
+        }
+    }
+    false
+}
+
 fn resolve_gemini_chat_dirs(chats_dir: Option<&str>, cwd: &str) -> Result<Vec<PathBuf>> {
     if let Some(dir) = chats_dir {
         let expanded = expand_home(dir).context("Invalid Gemini chats directory")?;
+        if is_system_directory(&expanded) {
+            return Err(anyhow!("Refusing to scan system directory: {}", expanded.display()));
+        }
         return if expanded.exists() {
             Ok(vec![expanded])
         } else {
@@ -799,13 +833,31 @@ where
     let mut stack = vec![dir.to_path_buf()];
 
     while let Some(current) = stack.pop() {
+        if matches.len() >= MAX_SCAN_FILES {
+            break;
+        }
+
         let entries = match fs::read_dir(&current) {
             Ok(v) => v,
             Err(_) => continue,
         };
 
         for entry in entries.flatten() {
+            if matches.len() >= MAX_SCAN_FILES {
+                break;
+            }
+
             let path = entry.path();
+            let file_type = match entry.file_type() {
+                Ok(ft) => ft,
+                Err(_) => continue,
+            };
+
+            // Skip symlinks (Phase 6)
+            if file_type.is_symlink() {
+                continue;
+            }
+
             if path.is_dir() {
                 if recursive {
                     stack.push(path);
@@ -857,8 +909,14 @@ fn path_contains(path: &Path, needle: &str) -> bool {
 fn redact_sensitive_text(input: &str) -> String {
     let step1 = redact_openai_like_keys(input);
     let step2 = redact_aws_access_keys(&step1);
-    let step3 = redact_bearer_tokens(&step2);
-    redact_secret_assignments(&step3)
+    let step3 = redact_github_tokens(&step2);
+    let step4 = redact_google_api_keys(&step3);
+    let step5 = redact_slack_tokens(&step4);
+    let step6 = redact_bearer_tokens(&step5);
+    let step7 = redact_jwt_tokens(&step6);
+    let step8 = redact_pem_keys(&step7);
+    let step9 = redact_connection_strings(&step8);
+    redact_secret_assignments(&step9)
 }
 
 fn redact_openai_like_keys(input: &str) -> String {
@@ -869,7 +927,7 @@ fn redact_openai_like_keys(input: &str) -> String {
     while i < chars.len() {
         if i + 3 <= chars.len() && chars[i] == 's' && chars[i + 1] == 'k' && chars[i + 2] == '-' {
             let mut j = i + 3;
-            while j < chars.len() && chars[j].is_ascii_alphanumeric() {
+            while j < chars.len() && (chars[j].is_ascii_alphanumeric() || chars[j] == '_' || chars[j] == '-') {
                 j += 1;
             }
             if j.saturating_sub(i + 3) >= 20 {
@@ -917,6 +975,232 @@ fn redact_aws_access_keys(input: &str) -> String {
     output
 }
 
+fn redact_github_tokens(input: &str) -> String {
+    let mut output = String::new();
+    let chars: Vec<char> = input.chars().collect();
+    let mut i = 0usize;
+
+    let prefixes: &[&str] = &["ghp_", "gho_", "ghs_", "ghr_"];
+    while i < chars.len() {
+        let mut matched = false;
+        for prefix in prefixes {
+            let pchars: Vec<char> = prefix.chars().collect();
+            if i + pchars.len() <= chars.len() && chars[i..i + pchars.len()] == pchars[..] {
+                let mut j = i + pchars.len();
+                while j < chars.len() && (chars[j].is_ascii_alphanumeric() || chars[j] == '_') {
+                    j += 1;
+                }
+                if j.saturating_sub(i + pchars.len()) >= 20 {
+                    output.push_str(prefix);
+                    output.push_str("[REDACTED]");
+                    i = j;
+                    matched = true;
+                    break;
+                }
+            }
+        }
+        if matched { continue; }
+
+        // github_pat_ prefix
+        let pat_prefix = "github_pat_";
+        let pat_chars: Vec<char> = pat_prefix.chars().collect();
+        if i + pat_chars.len() <= chars.len() && chars[i..i + pat_chars.len()] == pat_chars[..] {
+            let mut j = i + pat_chars.len();
+            while j < chars.len() && (chars[j].is_ascii_alphanumeric() || chars[j] == '_') {
+                j += 1;
+            }
+            if j.saturating_sub(i + pat_chars.len()) >= 20 {
+                output.push_str("github_pat_[REDACTED]");
+                i = j;
+                continue;
+            }
+        }
+
+        output.push(chars[i]);
+        i += 1;
+    }
+    output
+}
+
+fn redact_google_api_keys(input: &str) -> String {
+    let mut output = String::new();
+    let chars: Vec<char> = input.chars().collect();
+    let mut i = 0usize;
+
+    while i < chars.len() {
+        if i + 4 <= chars.len()
+            && chars[i] == 'A' && chars[i + 1] == 'I' && chars[i + 2] == 'z' && chars[i + 3] == 'a'
+        {
+            let mut j = i + 4;
+            while j < chars.len() && (chars[j].is_ascii_alphanumeric() || chars[j] == '_' || chars[j] == '-') {
+                j += 1;
+            }
+            if j.saturating_sub(i + 4) >= 20 {
+                output.push_str("AIza[REDACTED]");
+                i = j;
+                continue;
+            }
+        }
+        output.push(chars[i]);
+        i += 1;
+    }
+    output
+}
+
+fn redact_slack_tokens(input: &str) -> String {
+    let mut output = String::new();
+    let chars: Vec<char> = input.chars().collect();
+    let mut i = 0usize;
+
+    let prefixes: &[&str] = &["xoxb-", "xoxp-", "xoxs-"];
+    while i < chars.len() {
+        let mut matched = false;
+        for prefix in prefixes {
+            let pchars: Vec<char> = prefix.chars().collect();
+            if i + pchars.len() <= chars.len() && chars[i..i + pchars.len()] == pchars[..] {
+                let mut j = i + pchars.len();
+                while j < chars.len() && (chars[j].is_ascii_alphanumeric() || chars[j] == '-') {
+                    j += 1;
+                }
+                if j.saturating_sub(i + pchars.len()) >= 10 {
+                    output.push_str(prefix);
+                    output.push_str("[REDACTED]");
+                    i = j;
+                    matched = true;
+                    break;
+                }
+            }
+        }
+        if matched { continue; }
+        output.push(chars[i]);
+        i += 1;
+    }
+    output
+}
+
+fn redact_jwt_tokens(input: &str) -> String {
+    let mut output = String::new();
+    let chars: Vec<char> = input.chars().collect();
+    let mut i = 0usize;
+
+    fn is_base64url(ch: char) -> bool {
+        ch.is_ascii_alphanumeric() || ch == '_' || ch == '-'
+    }
+
+    while i < chars.len() {
+        if i + 3 <= chars.len() && chars[i] == 'e' && chars[i + 1] == 'y' && chars[i + 2] == 'J' {
+            let mut j = i + 3;
+            // First segment
+            while j < chars.len() && is_base64url(chars[j]) { j += 1; }
+            let seg1_len = j - (i + 3);
+            if seg1_len >= 10 && j < chars.len() && chars[j] == '.' {
+                j += 1;
+                let seg2_start = j;
+                while j < chars.len() && is_base64url(chars[j]) { j += 1; }
+                let seg2_len = j - seg2_start;
+                if seg2_len >= 10 && j < chars.len() && chars[j] == '.' {
+                    j += 1;
+                    let seg3_start = j;
+                    while j < chars.len() && is_base64url(chars[j]) { j += 1; }
+                    let seg3_len = j - seg3_start;
+                    if seg3_len >= 10 {
+                        output.push_str("[REDACTED_JWT]");
+                        i = j;
+                        continue;
+                    }
+                }
+            }
+        }
+        output.push(chars[i]);
+        i += 1;
+    }
+    output
+}
+
+fn redact_pem_keys(input: &str) -> String {
+    let mut out = input.to_string();
+    // Replace PEM private key blocks
+    while let Some(start) = out.find("-----BEGIN ") {
+        let header_end = match out[start..].find("-----\n").or_else(|| out[start..].find("-----\r")) {
+            Some(pos) => start + pos + 5,
+            None => break,
+        };
+        // Check this is a PRIVATE KEY header
+        let header = &out[start..header_end];
+        if !header.contains("PRIVATE KEY") {
+            // Skip past this marker to avoid infinite loop
+            let placeholder_pos = start + "-----BEGIN ".len();
+            if placeholder_pos >= out.len() { break; }
+            // Move on by replacing nothing, just advance search
+            let after = &out[header_end..];
+            if let Some(end_marker) = after.find("-----END ") {
+                let block_end_pos = header_end + end_marker;
+                if let Some(line_end) = out[block_end_pos..].find("-----") {
+                    let final_end = block_end_pos + line_end + 5;
+                    // Skip newline after end marker
+                    let final_end = if final_end < out.len() && (out.as_bytes()[final_end] == b'\n' || out.as_bytes()[final_end] == b'\r') {
+                        final_end + 1
+                    } else {
+                        final_end
+                    };
+                    out = format!("{}{}", &out[..start], &out[final_end..]);
+                    continue;
+                }
+            }
+            break;
+        }
+        // Find end marker
+        let after = &out[header_end..];
+        if let Some(end_pos) = after.find("-----END ") {
+            let end_start = header_end + end_pos;
+            if let Some(end_line) = out[end_start..].find("-----\n").or_else(|| out[end_start..].find("-----\r")).or_else(|| {
+                // Could be at end of string
+                if out[end_start..].ends_with("-----") { Some(out[end_start..].len() - 5) } else { None }
+            }) {
+                let final_end = end_start + end_line + 5;
+                let final_end = if final_end < out.len() && (out.as_bytes()[final_end] == b'\n' || out.as_bytes()[final_end] == b'\r') {
+                    final_end + 1
+                } else {
+                    final_end
+                };
+                out = format!("{}[REDACTED_PEM_KEY]{}", &out[..start], &out[final_end..]);
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+    out
+}
+
+fn redact_connection_strings(input: &str) -> String {
+    let mut out = input.to_string();
+    let protocols = ["postgres://", "postgresql://", "mysql://", "mongodb://", "redis://", "amqp://"];
+    for proto in protocols {
+        let mut search_from = 0usize;
+        loop {
+            let lower = out.to_ascii_lowercase();
+            let Some(pos) = lower[search_from..].find(proto) else { break; };
+            let start = search_from + pos;
+            let url_start = start;
+            let proto_end = start + proto.len();
+            // Find end of URL (whitespace, quote, or end of string)
+            let mut end = proto_end;
+            while end < out.len() {
+                let ch = out.as_bytes()[end] as char;
+                if ch.is_ascii_whitespace() || ch == '"' || ch == '\'' { break; }
+                end += 1;
+            }
+            let proto_actual = &out[url_start..proto_end];
+            let replacement = format!("{}[REDACTED]", proto_actual);
+            out.replace_range(url_start..end, &replacement);
+            search_from = url_start + replacement.len();
+        }
+    }
+    out
+}
+
 fn redact_bearer_tokens(input: &str) -> String {
     let mut out = input.to_string();
     let mut search_from = 0usize;
@@ -949,7 +1233,7 @@ fn redact_bearer_tokens(input: &str) -> String {
 }
 
 fn redact_secret_assignments(input: &str) -> String {
-    let keywords = ["api_key", "apikey", "token", "secret", "password"];
+    let keywords = ["api_key", "api-key", "apikey", "token", "secret", "password"];
     let mut output = input.to_string();
 
     for key in keywords {
@@ -1132,6 +1416,10 @@ pub fn search_codex_sessions(query: &str, cwd: Option<&str>, limit: usize) -> Re
             }
         }
 
+        if fs::metadata(&file.path).map(|m| m.len() > MAX_FILE_SIZE).unwrap_or(false) {
+            continue;
+        }
+
         let content = match fs::read_to_string(&file.path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -1169,6 +1457,10 @@ pub fn search_claude_sessions(query: &str, cwd: Option<&str>, limit: usize) -> R
             }
         }
 
+        if fs::metadata(&file.path).map(|m| m.len() > MAX_FILE_SIZE).unwrap_or(false) {
+            continue;
+        }
+
         let content = match fs::read_to_string(&file.path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -1204,12 +1496,16 @@ pub fn search_gemini_sessions(query: &str, cwd: Option<&str>, limit: usize) -> R
     
     for file in candidates {
         if entries.len() >= limit { break; }
-        
+
+        if fs::metadata(&file.path).map(|m| m.len() > MAX_FILE_SIZE).unwrap_or(false) {
+            continue;
+        }
+
         let content = match fs::read_to_string(&file.path) {
             Ok(c) => c,
             Err(_) => continue,
         };
-        
+
         if content.to_ascii_lowercase().contains(&query_lower) {
             let session_id = file.path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string();
             entries.push(serde_json::json!({
@@ -1246,6 +1542,10 @@ pub fn search_cursor_sessions(query: &str, cwd: Option<&str>, limit: usize) -> R
 
     for file in files {
         if entries.len() >= limit { break; }
+
+        if fs::metadata(&file.path).map(|m| m.len() > MAX_FILE_SIZE).unwrap_or(false) {
+            continue;
+        }
 
         let content = match fs::read_to_string(&file.path) {
             Ok(c) => c,
@@ -1689,5 +1989,66 @@ mod tests {
         let input = "sk-short is fine";
         let output = redact_sensitive_text(input);
         assert_eq!(output, "sk-short is fine");
+    }
+
+    #[test]
+    fn redacts_sk_proj_keys() {
+        let input = "key is sk-proj-abcdefghij0123456789abcdefghij";
+        let output = redact_sensitive_text(input);
+        assert!(output.contains("sk-[REDACTED]"), "got: {}", output);
+        assert!(!output.contains("abcdefghij0123456789"));
+    }
+
+    #[test]
+    fn redacts_github_tokens() {
+        let input = "ghp_abcdefghijklmnopqrstuvwxyz1234 and github_pat_abcdefghijklmnopqrstuvwxyz1234";
+        let output = redact_sensitive_text(input);
+        assert!(output.contains("ghp_[REDACTED]"), "got: {}", output);
+        assert!(output.contains("github_pat_[REDACTED]"), "got: {}", output);
+    }
+
+    #[test]
+    fn redacts_google_api_keys() {
+        let input = "key: AIzaSyA1234567890abcdefghijklmno";
+        let output = redact_sensitive_text(input);
+        assert!(output.contains("AIza[REDACTED]"), "got: {}", output);
+    }
+
+    #[test]
+    fn redacts_slack_tokens() {
+        let input = "xoxb-123456-7890abcdef-ghijklmnop";
+        let output = redact_sensitive_text(input);
+        assert!(output.contains("xoxb-[REDACTED]"), "got: {}", output);
+    }
+
+    #[test]
+    fn redacts_jwt_tokens() {
+        let input = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U";
+        let output = redact_sensitive_text(input);
+        assert!(output.contains("[REDACTED_JWT]"), "got: {}", output);
+    }
+
+    #[test]
+    fn redacts_connection_strings() {
+        let input = "postgres://user:pass@host:5432/db";
+        let output = redact_sensitive_text(input);
+        assert!(output.contains("postgres://[REDACTED]"), "got: {}", output);
+        assert!(!output.contains("user:pass"), "got: {}", output);
+    }
+
+    #[test]
+    fn redacts_pem_keys() {
+        let input = "before\n-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA0Z3VS5JJcds3xfn/ygWyF8PbnGy\n-----END RSA PRIVATE KEY-----\nafter";
+        let output = redact_sensitive_text(input);
+        assert!(output.contains("[REDACTED_PEM_KEY]"), "got: {}", output);
+        assert!(!output.contains("MIIEowIBAAKCAQEA0Z3VS5JJcds3xfn"), "got: {}", output);
+    }
+
+    #[test]
+    fn redacts_api_hyphen_key() {
+        let input = "api-key=\"super-secret-123\"";
+        let output = redact_sensitive_text(input);
+        assert!(output.contains("[REDACTED]"), "got: {}", output);
+        assert!(!output.contains("super-secret-123"), "got: {}", output);
     }
 }

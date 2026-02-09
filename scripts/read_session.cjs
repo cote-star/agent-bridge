@@ -179,6 +179,15 @@ function hasFlag(inputArgs, name) {
 }
 
 function writeFileEnsured(filePath, content) {
+  // Check for symlinks in the target path
+  try {
+    const lstat = fs.lstatSync(filePath);
+    if (lstat.isSymbolicLink()) {
+      throw new Error(`Refusing to write: target is a symlink: ${filePath}`);
+    }
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, content, 'utf-8');
 }
@@ -223,6 +232,35 @@ function upsertManagedBlock(filePath, block, markerPrefix, force, dryRun) {
 
   const startIdx = existing.indexOf(startMarker);
   const endIdx = existing.indexOf(endMarker);
+
+  // Check for duplicate markers
+  if (startIdx !== -1) {
+    const secondStart = existing.indexOf(startMarker, startIdx + startMarker.length);
+    const secondEnd = endIdx !== -1 ? existing.indexOf(endMarker, endIdx + endMarker.length) : -1;
+    if (secondStart !== -1 || secondEnd !== -1) {
+      if (!force) {
+        return { status: 'unchanged', message: 'Duplicate managed block markers detected (use --force to replace all)' };
+      }
+      // With --force: remove ALL occurrences of managed blocks and re-insert once
+      let cleaned = existing;
+      let safety = 0;
+      while (safety < 10) {
+        const s = cleaned.indexOf(startMarker);
+        const e = cleaned.indexOf(endMarker);
+        if (s === -1 || e === -1 || e < s) break;
+        const before = cleaned.slice(0, s).replace(/\s*$/, '');
+        const after = cleaned.slice(e + endMarker.length).replace(/^\s*/, '');
+        cleaned = `${before}\n\n${after}`.replace(/\n{3,}/g, '\n\n');
+        safety += 1;
+      }
+      const trimmed = cleaned.replace(/\s*$/, '');
+      const next = trimmed ? `${trimmed}\n\n${block}\n` : `${block}\n`;
+      if (!dryRun) {
+        writeFileEnsured(filePath, next);
+      }
+      return { status: 'updated', message: 'Replaced duplicate managed blocks' };
+    }
+  }
 
   let next;
   let status;
@@ -274,12 +312,16 @@ function defaultSetupIntents() {
   ].join('\n');
 }
 
+const { MAX_FILE_SIZE, MAX_SCAN_FILES } = require('./adapters/utils.cjs');
+
 function collectMatchingFiles(dirPath, predicate, recursive = false) {
   if (!dirPath || !fs.existsSync(dirPath)) return [];
 
   const matches = [];
 
   function search(currentDir) {
+    if (matches.length >= MAX_SCAN_FILES) return;
+
     let entries = [];
     try {
       entries = fs.readdirSync(currentDir, { withFileTypes: true });
@@ -288,8 +330,11 @@ function collectMatchingFiles(dirPath, predicate, recursive = false) {
     }
 
     for (const entry of entries) {
+      if (matches.length >= MAX_SCAN_FILES) return;
+
       const fullPath = path.join(currentDir, entry.name);
       if (entry.isDirectory()) {
+        if (entry.isSymbolicLink()) continue;
         if (recursive) search(fullPath);
         continue;
       }
@@ -297,8 +342,6 @@ function collectMatchingFiles(dirPath, predicate, recursive = false) {
       if (!predicate(fullPath, entry.name)) continue;
 
       try {
-        // Prefer nanosecond precision to keep "latest" selection stable
-        // across runtimes and filesystems.
         let mtimeNs;
         try {
           const statBig = fs.statSync(fullPath, { bigint: true });
@@ -325,6 +368,10 @@ function collectMatchingFiles(dirPath, predicate, recursive = false) {
 }
 
 function readJsonlLines(filePath) {
+  const stat = fs.statSync(filePath);
+  if (stat.size > MAX_FILE_SIZE) {
+    throw new Error(`Skipped ${filePath} (exceeds ${MAX_FILE_SIZE / (1024 * 1024)}MB size limit)`);
+  }
   return fs.readFileSync(filePath, 'utf-8').split('\n').filter(Boolean);
 }
 
@@ -393,9 +440,23 @@ function listGeminiChatDirs() {
   return dirs;
 }
 
+const SYSTEM_DIRS = new Set(['/etc', '/usr', '/var', '/bin', '/sbin', '/System', '/Library',
+  '/Windows', '/Windows/System32', '/Program Files', '/Program Files (x86)']);
+
+function isSystemDirectory(dirPath) {
+  const resolved = path.resolve(dirPath);
+  for (const sysDir of SYSTEM_DIRS) {
+    if (resolved === sysDir || resolved.startsWith(sysDir + path.sep)) return true;
+  }
+  return false;
+}
+
 function resolveGeminiChatDirs(chatsDir, cwd) {
   if (chatsDir) {
     const expanded = normalizePath(chatsDir);
+    if (isSystemDirectory(expanded)) {
+      throw new Error(`Refusing to scan system directory: ${expanded}`);
+    }
     return fs.existsSync(expanded) ? [expanded] : [];
   }
 
@@ -519,15 +580,8 @@ function extractClaudeText(value) {
 }
 
 function redactSensitiveText(input) {
-  let output = String(input || '');
-  output = output.replace(/\bsk-[A-Za-z0-9]{20,}\b/g, 'sk-[REDACTED]');
-  output = output.replace(/\bAKIA[0-9A-Z]{16}\b/g, 'AKIA[REDACTED]');
-  output = output.replace(/\bBearer\s+[A-Za-z0-9._-]{10,}\b/gi, 'Bearer [REDACTED]');
-  output = output.replace(
-    /\b(api[_-]?key|token|secret|password)\b\s*[:=]\s*["']?[^"'\s]+["']?/gi,
-    (_, key) => `${key}=[REDACTED]`
-  );
-  return output;
+  // Delegate to the shared implementation in utils.cjs
+  return require('./adapters/utils.cjs').redactSensitiveText(input);
 }
 
 function classifyError(message) {
@@ -1067,6 +1121,16 @@ function buildReport(request, defaultCwd) {
   };
 }
 
+function sanitizeForTerminal(text) {
+  // Strip C0 control characters (0x00-0x1F) except \n (0x0A) and \t (0x09)
+  // Strip ESC (0x1B) sequences including ANSI CSI (ESC[...) and OSC (ESC]...)
+  return String(text || '')
+    .replace(/\x1B\[[0-9;]*[A-Za-z]/g, '') // CSI sequences
+    .replace(/\x1B\][^\x07]*(?:\x07|\x1B\\)/g, '') // OSC sequences
+    .replace(/\x1B[^[\]]/g, '') // Other ESC sequences
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ''); // C0 control chars except \t \n \r
+}
+
 function renderReadResult(result, asJson) {
   if (asJson) {
     console.log(JSON.stringify(result, null, 2));
@@ -1074,13 +1138,13 @@ function renderReadResult(result, asJson) {
   }
 
   for (const warning of result.warnings || []) {
-    console.error(warning);
+    console.error(sanitizeForTerminal(warning));
   }
 
   const label = result.agent.charAt(0).toUpperCase() + result.agent.slice(1);
-  console.log(`SOURCE: ${label} Session (${result.source})`);
+  console.log(sanitizeForTerminal(`SOURCE: ${label} Session (${result.source})`));
   console.log('---');
-  console.log(result.content);
+  console.log(sanitizeForTerminal(result.content));
 }
 
 function renderReport(result, asJson) {
@@ -1125,7 +1189,7 @@ function renderReport(result, asJson) {
     }
   }
 
-  console.log(lines.join('\n'));
+  console.log(sanitizeForTerminal(lines.join('\n')));
 }
 
 function validateMode(mode) {
@@ -1184,6 +1248,29 @@ function runSetup(inputArgs) {
   const asJson = hasFlag(inputArgs, '--json');
   const dryRun = hasFlag(inputArgs, '--dry-run');
   const force = hasFlag(inputArgs, '--force');
+
+  // Validate target directory is not a system path
+  if (isSystemDirectory(cwd)) {
+    throw new Error(`Refusing to run setup in system directory: ${cwd}`);
+  }
+
+  // Check for symlinks in the write path
+  try {
+    const lstat = fs.lstatSync(cwd);
+    if (lstat.isSymbolicLink()) {
+      throw new Error(`Refusing to run setup: target path is a symlink: ${cwd}`);
+    }
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+
+  // Warn if target has no project markers
+  const projectMarkers = ['.git', 'package.json', 'Cargo.toml', 'pyproject.toml', 'go.mod'];
+  const hasProjectMarker = projectMarkers.some(marker => fs.existsSync(path.join(cwd, marker)));
+  const setupWarnings = [];
+  if (!hasProjectMarker) {
+    setupWarnings.push(`Warning: ${cwd} has no recognizable project markers (.git, package.json, etc.)`);
+  }
 
   const setupRoot = path.join(cwd, '.agent-bridge');
   const providersDir = path.join(setupRoot, 'providers');
@@ -1284,6 +1371,7 @@ function runSetup(inputArgs) {
     dry_run: dryRun,
     force,
     operations,
+    warnings: setupWarnings,
     changed: changedCount,
   };
 
@@ -1293,6 +1381,9 @@ function runSetup(inputArgs) {
   }
 
   console.log(`Agent Bridge setup ${dryRun ? '(dry run) ' : ''}complete for ${cwd}`);
+  for (const warning of setupWarnings) {
+    console.log(`- [warn] ${warning}`);
+  }
   for (const op of operations) {
     console.log(`- [${op.status}] ${op.path} (${op.note})`);
   }
@@ -1549,6 +1640,8 @@ function runCompare(inputArgs) {
   renderReport(report, asJson);
 }
 
+const MAX_HANDOFF_SIZE = 1024 * 1024; // 1 MB
+
 function runReport(inputArgs) {
   const handoffPath = getOptionValue(inputArgs, '--handoff', null);
   if (!handoffPath) {
@@ -1558,11 +1651,30 @@ function runReport(inputArgs) {
   const cwd = normalizePath(getOptionValue(inputArgs, '--cwd', process.cwd()));
   const asJson = hasFlag(inputArgs, '--json');
 
-  let handoff;
+  const resolvedHandoffPath = normalizePath(handoffPath);
+  let handoffStat;
   try {
-    handoff = JSON.parse(fs.readFileSync(normalizePath(handoffPath), 'utf-8'));
+    handoffStat = fs.statSync(resolvedHandoffPath);
   } catch (error) {
     throw new Error(`Failed to read handoff JSON: ${error.message}`);
+  }
+  if (handoffStat.size > MAX_HANDOFF_SIZE) {
+    throw new Error('Invalid handoff: file exceeds 1MB size limit');
+  }
+
+  let handoff;
+  try {
+    handoff = JSON.parse(fs.readFileSync(resolvedHandoffPath, 'utf-8'));
+  } catch (error) {
+    throw new Error(`Failed to read handoff JSON: ${error.message}`);
+  }
+
+  if (typeof handoff !== 'object' || handoff === null || Array.isArray(handoff)) {
+    throw new Error('Invalid handoff: must be a JSON object');
+  }
+  const extraKeys = Object.keys(handoff).filter(k => !['mode', 'task', 'success_criteria', 'sources', 'constraints'].includes(k));
+  if (extraKeys.length > 0) {
+    throw new Error(`Invalid handoff: unexpected fields: ${extraKeys.join(', ')}`);
   }
 
   const mode = String(handoff.mode || '').toLowerCase();

@@ -239,11 +239,11 @@ fn run(cli: Cli) -> Result<()> {
                 println!("{}", serde_json::to_string_pretty(&report)?);
             } else {
                 for warning in &session.warnings {
-                    eprintln!("{}", warning);
+                    eprintln!("{}", utils::sanitize_for_terminal(warning));
                 }
-                println!("SOURCE: {} Session ({})", format_agent_name(session.agent), session.source);
+                println!("SOURCE: {} Session ({})", format_agent_name(session.agent), utils::sanitize_for_terminal(&session.source));
                 println!("---");
-                println!("{}", session.content);
+                println!("{}", utils::sanitize_for_terminal(&session.content));
             }
         }
         Commands::Compare { sources, cwd, normalize, json } => {
@@ -324,7 +324,7 @@ fn emit_report_output(report_value: &serde_json::Value, json_output: bool) -> Re
     if json_output {
         println!("{}", serde_json::to_string_pretty(report_value)?);
     } else {
-        println!("{}", report::report_to_markdown(report_value));
+        println!("{}", utils::sanitize_for_terminal(&report::report_to_markdown(report_value)));
     }
     Ok(())
 }

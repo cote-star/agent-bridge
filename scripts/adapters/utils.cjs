@@ -7,6 +7,9 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+const MAX_SCAN_FILES = 1000;
+
 function expandHome(filepath) {
   if (!filepath) return filepath;
   if (filepath === '~') return os.homedir();
@@ -30,6 +33,8 @@ function collectMatchingFiles(dirPath, predicate, recursive = false) {
   const matches = [];
 
   function search(currentDir) {
+    if (matches.length >= MAX_SCAN_FILES) return;
+
     let entries = [];
     try {
       entries = fs.readdirSync(currentDir, { withFileTypes: true });
@@ -38,8 +43,12 @@ function collectMatchingFiles(dirPath, predicate, recursive = false) {
     }
 
     for (const entry of entries) {
+      if (matches.length >= MAX_SCAN_FILES) return;
+
       const fullPath = path.join(currentDir, entry.name);
+      // Skip symlinked directories by default (Phase 6)
       if (entry.isDirectory()) {
+        if (entry.isSymbolicLink()) continue;
         if (recursive) search(fullPath);
         continue;
       }
@@ -75,6 +84,10 @@ function collectMatchingFiles(dirPath, predicate, recursive = false) {
 }
 
 function readJsonlLines(filePath) {
+  const stat = fs.statSync(filePath);
+  if (stat.size > MAX_FILE_SIZE) {
+    throw new Error(`Skipped ${filePath} (exceeds ${MAX_FILE_SIZE / (1024 * 1024)}MB size limit)`);
+  }
   return fs.readFileSync(filePath, 'utf-8').split('\n').filter(Boolean);
 }
 
@@ -122,9 +135,26 @@ function extractClaudeText(value) {
 
 function redactSensitiveText(input) {
   let output = String(input || '');
-  output = output.replace(/\bsk-[A-Za-z0-9]{20,}\b/g, 'sk-[REDACTED]');
+  // OpenAI keys (sk-proj-, sk-ant-, sk-...) with hyphens allowed
+  output = output.replace(/\bsk-[A-Za-z0-9_-]{20,}/g, 'sk-[REDACTED]');
+  // AWS access keys
   output = output.replace(/\bAKIA[0-9A-Z]{16}\b/g, 'AKIA[REDACTED]');
-  output = output.replace(/\bBearer\s+[A-Za-z0-9._-]{10,}\b/gi, 'Bearer [REDACTED]');
+  // GitHub tokens
+  output = output.replace(/\b(ghp_|gho_|ghs_|ghr_)[A-Za-z0-9_]{20,}/g, '$1[REDACTED]');
+  output = output.replace(/\bgithub_pat_[A-Za-z0-9_]{20,}/g, 'github_pat_[REDACTED]');
+  // Google API keys
+  output = output.replace(/\bAIza[A-Za-z0-9_-]{20,}/g, 'AIza[REDACTED]');
+  // Slack tokens
+  output = output.replace(/\b(xoxb-|xoxp-|xoxs-)[A-Za-z0-9-]{10,}/g, '$1[REDACTED]');
+  // Bearer tokens
+  output = output.replace(/\bBearer\s+[A-Za-z0-9._-]{10,}/gi, 'Bearer [REDACTED]');
+  // JWT-like tokens (three base64url segments)
+  output = output.replace(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, '[REDACTED_JWT]');
+  // PEM private keys
+  output = output.replace(/-----BEGIN\s+(RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END\s+(RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/g, '[REDACTED_PEM_KEY]');
+  // Connection strings — redact userinfo portion
+  output = output.replace(/((?:postgres|mysql|mongodb|redis|amqp):\/\/)[^\s"']+/gi, '$1[REDACTED]');
+  // Secret assignments (api_key, api-key, apikey, token, secret, password)
   output = output.replace(
     /\b(api[_-]?key|token|secret|password)\b\s*[:=]\s*["']?[^"'\s]+["']?/gi,
     (_, key) => `${key}=[REDACTED]`
@@ -133,6 +163,8 @@ function redactSensitiveText(input) {
 }
 
 module.exports = {
+  MAX_FILE_SIZE,
+  MAX_SCAN_FILES,
   expandHome,
   normalizePath,
   hashPath,

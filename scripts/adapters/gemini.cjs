@@ -36,9 +36,23 @@ function listGeminiChatDirs() {
   return dirs;
 }
 
+const SYSTEM_DIRS = new Set(['/etc', '/usr', '/var', '/bin', '/sbin', '/System', '/Library',
+  '/Windows', '/Windows/System32', '/Program Files', '/Program Files (x86)']);
+
+function isSystemDirectory(dirPath) {
+  const resolved = path.resolve(dirPath);
+  for (const sysDir of SYSTEM_DIRS) {
+    if (resolved === sysDir || resolved.startsWith(sysDir + path.sep)) return true;
+  }
+  return false;
+}
+
 function resolveGeminiChatDirs(chatsDir, cwd) {
   if (chatsDir) {
     const expanded = normalizePath(chatsDir);
+    if (isSystemDirectory(expanded)) {
+      throw new Error(`Refusing to scan system directory: ${expanded}`);
+    }
     return fs.existsSync(expanded) ? [expanded] : [];
   }
   const ordered = [];
@@ -59,6 +73,7 @@ function resolve(id, cwd, opts) {
   const dirs = resolveGeminiChatDirs(chatsDir, cwd);
   if (dirs.length === 0) return null;
 
+  const warnings = [];
   const candidates = [];
   for (const dir of dirs) {
     const files = collectMatchingFiles(dir, (fullPath, name) => {
@@ -69,7 +84,7 @@ function resolve(id, cwd, opts) {
     for (const file of files) candidates.push(file);
   }
   candidates.sort(compareByMtimeDesc);
-  return candidates.length > 0 ? { path: candidates[0].path, warnings: [], searchedDirs: dirs } : null;
+  return candidates.length > 0 ? { path: candidates[0].path, warnings, searchedDirs: dirs } : null;
 }
 
 function read(filePath, lastN) {

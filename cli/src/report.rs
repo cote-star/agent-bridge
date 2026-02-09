@@ -39,9 +39,26 @@ pub fn parse_source_arg(raw: &str) -> Result<SourceSpec> {
     })
 }
 
+const MAX_HANDOFF_SIZE: u64 = 1024 * 1024; // 1 MB
+
 pub fn load_handoff(path: &str) -> Result<ReportRequest> {
+    let meta = std::fs::metadata(path).with_context(|| format!("Failed to read handoff file: {}", path))?;
+    if meta.len() > MAX_HANDOFF_SIZE {
+        return Err(anyhow!("Invalid handoff: file exceeds 1MB size limit"));
+    }
     let raw = std::fs::read_to_string(path).with_context(|| format!("Failed to read handoff file: {}", path))?;
     let root: Value = serde_json::from_str(&raw).with_context(|| format!("Failed to parse handoff JSON: {}", path))?;
+
+    // Validate no extra fields
+    if let Some(obj) = root.as_object() {
+        let allowed = ["mode", "task", "success_criteria", "sources", "constraints"];
+        let extra: Vec<&String> = obj.keys().filter(|k| !allowed.contains(&k.as_str())).collect();
+        if !extra.is_empty() {
+            return Err(anyhow!("Invalid handoff: unexpected fields: {}", extra.iter().map(|k| k.as_str()).collect::<Vec<_>>().join(", ")));
+        }
+    } else {
+        return Err(anyhow!("Invalid handoff: must be a JSON object"));
+    }
 
     let mode = root["mode"]
         .as_str()

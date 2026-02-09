@@ -2,7 +2,7 @@
 
 ![CI Status](https://github.com/cote-star/agent-bridge/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-0.4.3-green.svg)
+![Version](https://img.shields.io/badge/version-0.4.4-green.svg)
 
 **Let your AI agents talk about each other.**
 

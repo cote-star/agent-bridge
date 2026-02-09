@@ -1,6 +1,6 @@
 [package]
 name = "agent-bridge"
-version = "0.4.3"
+version = "0.4.4"
 edition = "2021"
 description = "Local-first CLI to read, compare, and hand off context across Codex, Claude, Gemini, and Cursor sessions."
 license = "MIT"

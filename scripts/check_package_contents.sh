@@ -5,7 +5,7 @@ tmp_json="$(mktemp)"
 npm_cache_dir="$(mktemp -d)"
 trap 'rm -f "$tmp_json"; rm -rf "$npm_cache_dir"' EXIT
 
-NPM_CONFIG_CACHE="$npm_cache_dir" npm pack --dry-run --json --silent > "$tmp_json"
+npm_config_cache="$npm_cache_dir" NPM_CONFIG_CACHE="$npm_cache_dir" npm pack --dry-run --json --silent > "$tmp_json"
 
 node - "$tmp_json" <<'NODE'
 const fs = require('fs');
