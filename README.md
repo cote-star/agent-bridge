@@ -2,7 +2,7 @@
 
 ![CI Status](https://github.com/cote-star/agent-bridge/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-0.4.4-green.svg)
+![Version](https://img.shields.io/badge/version-0.5.0-green.svg)
 
 **Let your AI agents talk about each other.**
 
@@ -397,6 +397,7 @@ Redaction is applied to `api_key`, `apikey`, `token`, `secret`, and `password` a
 - **Skill**: See [`SKILL.md`](https://github.com/cote-star/agent-bridge/blob/main/SKILL.md) for cross-agent trigger behavior and evidence workflow.
 - **Contributing**: See [`CONTRIBUTING.md`](https://github.com/cote-star/agent-bridge/blob/main/CONTRIBUTING.md) for setup, tests, and PR expectations.
 - **Local Context Pack**: See [`CONTEXT_PACK.md`](./CONTEXT_PACK.md) for token-efficient agent onboarding context.
+- **Release Notes**: See [`RELEASE_NOTES.md`](./RELEASE_NOTES.md) for release-level changes and upgrade notes.
 
 ### Context Pack
 

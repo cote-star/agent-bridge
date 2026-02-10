@@ -1,9 +1,9 @@
 # System Overview
 
 ## Product Shape
-- Package version: `0.4.4`
-- Crate version: `0.4.4`
-- Tracked files: `94`
+- Package version: `0.5.0`
+- Crate version: `0.5.0`
+- Tracked files: `97`
 - Delivery: npm package (`bridge`) + Rust binary (`bridge`).
 
 ## Runtime Architecture
@@ -32,8 +32,8 @@
 | `context-pack` | Build/sync/install context-pack automation | `scripts/read_session.cjs`, `scripts/context_pack` |
 
 ## Tracked Path Density
-- scripts: 22 tracked files
-- cli/src: 9 tracked files
+- scripts: 24 tracked files
+- cli/src: 10 tracked files
 - schemas: 5 tracked files
 - fixtures: 30 tracked files
 - .github/workflows: 2 tracked files
