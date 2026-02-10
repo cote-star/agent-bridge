@@ -5,10 +5,10 @@ This context pack is the first-stop index for agent work in this repository.
 ## Snapshot
 - Repo: `agent-bridge`
 - Branch at generation: `main`
-- HEAD commit: `8be81695f19ef962a2a44c968ea496217c4c3eb2`
-- Node package version: `0.5.2`
-- Rust crate version: `0.5.2`
-- Generated at: `2026-02-10T12:48:31.532Z`
+- HEAD commit: `e951c2de77df5bf18802d1ed2d0dbbdc5e493416`
+- Node package version: `0.5.3`
+- Rust crate version: `0.5.3`
+- Generated at: `2026-02-10T13:12:16.883Z`
 
 ## Read Order (Token-Efficient)
 1. Read this file.

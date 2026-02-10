@@ -4,9 +4,9 @@ This repo includes a context-pack system for token-efficient agent onboarding.
 
 ## Goals
 - Keep "understand the repo end-to-end" requests cheap in tokens.
-- Give agents a dense, stable index before they open source files.
+- Give agents a dense, stable index before they open project files.
 - Update context only when `main` changes are context-relevant.
-- Keep context history recoverable without publishing it to npm or OSS.
+- Keep context history recoverable without publishing local-only data in package artifacts.
 
 ## Storage Model
 - Active pack: `.agent-context/current/` — **tracked in git** so all contributors share the same context.

@@ -1,5 +1,20 @@
 # Release Notes
 
+## v0.5.3 (2026-02-10)
+
+### Highlights
+- Clarifies context-pack wording for private-project users.
+- Removes "open source files" phrasing that could be misread as requiring public code.
+
+### Changed
+- README context-pack section now explicitly states that private repositories are fully supported without making code public.
+- `CLAUDE.md` and `CONTEXT_PACK.md` now use "project files" wording for pack-first deep dives.
+- Context-pack policy wording updated to clarify that local-only data is not published in package artifacts.
+
+### Upgrade Notes
+- No CLI behavior or output-contract changes.
+- Safe documentation-only patch release.
+
 ## v0.5.2 (2026-02-10)
 
 ### Highlights

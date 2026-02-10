@@ -11,7 +11,7 @@ When asked to understand this repository (or any "what does this repo do?" inten
 2. Follow the read order defined in that file (`10_SYSTEM_OVERVIEW.md`, then
    `30_BEHAVIORAL_INVARIANTS.md`, then `20_CODE_MAP.md`, then
    `40_OPERATIONS_AND_RELEASE.md`).
-3. Only open source files when the context pack identifies a specific target.
+3. Only open project files when the context pack identifies a specific target.
 
 If the context pack is missing or stale, run:
 

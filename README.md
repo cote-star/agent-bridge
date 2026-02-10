@@ -2,7 +2,7 @@
 
 ![CI Status](https://github.com/cote-star/agent-bridge/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-0.5.2-green.svg)
+![Version](https://img.shields.io/badge/version-0.5.3-green.svg)
 
 **Let your AI agents talk about each other.**
 
@@ -90,7 +90,8 @@ After `bridge setup`, provider instructions follow this behavior:
 ## Context Pack
 
 A context pack is an agent-first, token-efficient repo briefing for end-to-end understanding tasks.
-Instead of re-reading the full repository on every request, agents start from `.agent-context/current/` and open source files only when needed.
+Instead of re-reading the full repository on every request, agents start from `.agent-context/current/` and open project files only when needed.
+This works the same for private repositories: the pack is local-first and does not require making your code public.
 
 ### Recommended Workflow
 
