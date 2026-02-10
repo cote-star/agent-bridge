@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+remote_name="${1:-origin}"
+remote_url="${2:-unknown}"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [[ "$local_ref" == "refs/heads/main" || "$remote_ref" == "refs/heads/main" ]]; then
+    echo "[context-pack] validating main push for ${remote_name} (${remote_url})"
+    node scripts/context_pack/sync_main.cjs \
+      --local-ref "$local_ref" \
+      --local-sha "$local_sha" \
+      --remote-ref "$remote_ref" \
+      --remote-sha "$remote_sha"
+  fi
+done

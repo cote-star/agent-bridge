@@ -30,6 +30,7 @@ const forbiddenPrefixes = [
   'cli/',
   'references/',
   '.github/',
+  '.agent-context/',
   'node_modules/',
 ];
 

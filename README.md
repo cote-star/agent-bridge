@@ -293,6 +293,21 @@ Redaction is applied to `api_key`, `apikey`, `token`, `secret`, and `password` a
 - **Protocol**: See [`PROTOCOL.md`](https://github.com/cote-star/agent-bridge/blob/main/PROTOCOL.md) for the CLI and JSON specification.
 - **Skill**: See [`SKILL.md`](https://github.com/cote-star/agent-bridge/blob/main/SKILL.md) for cross-agent trigger behavior and evidence workflow.
 - **Contributing**: See [`CONTRIBUTING.md`](https://github.com/cote-star/agent-bridge/blob/main/CONTRIBUTING.md) for setup, tests, and PR expectations.
+- **Local Context Pack**: See [`CONTEXT_PACK.md`](./CONTEXT_PACK.md) for token-efficient agent onboarding context.
+
+### Local Context Pack (Private)
+
+The repo supports a local-only context pack for agent onboarding:
+
+```bash
+# Build/update local context pack
+npm run context-pack:build
+
+# Install pre-push hook that syncs pack on main pushes when needed
+npm run context-pack:install-hooks
+```
+
+The active pack (`.agent-context/current/`) is tracked in git. Recovery snapshots (`.agent-context/snapshots/`) and build history are git-ignored and stay local.
 
 ### Project Structure
 

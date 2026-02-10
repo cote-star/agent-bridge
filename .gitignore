@@ -19,6 +19,7 @@ fixtures/demo/tmp/
 
 # Local non-package artifacts
 blog/
+backups/
 notes/
 drafts/
 research/
@@ -26,3 +27,6 @@ scratch/
 tmp/
 .cache/
 *.log
+# Context pack: track current/ in git, exclude local-only artifacts
+.agent-context/snapshots/
+.agent-context/history.jsonl
