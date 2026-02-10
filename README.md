@@ -46,6 +46,19 @@ From zero to a working skill query in under a minute.
 
 ![Setup Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-setup.webp)
 
+### Context Pack Creation
+
+Create and wire a context pack for token-efficient repo understanding:
+
+```bash
+# One-shot project setup + context pack wiring
+bridge setup --context-pack
+
+# Or run explicitly
+bridge context-pack build
+bridge context-pack install-hooks
+```
+
 </details>
 
 ## Quick Start
@@ -66,6 +79,12 @@ bridge doctor
 ```
 
 This wires skill triggers into your agent configs (`CLAUDE.md`, `GEMINI.md`, `AGENTS.md`) so agents know how to use the bridge.
+
+To initialize context-pack automation during setup:
+
+```bash
+bridge setup --context-pack
+```
 
 ### 3. Ask
 
