@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-02-10T11:49:46.012Z",
+  "generated_at": "2026-02-10T11:51:40.306Z",
   "repo_name": "agent-bridge",
   "repo_root": "/Users/e059303/sandbox/agent-bridge",
   "branch": "main",
-  "head_sha": "9a19915a21aa9e9648f36b67e78b739a1c1c8e2f",
+  "head_sha": "e9368078ca5311d03ab7ddf6dcbd9cead624cca1",
   "package_version": "0.5.0",
   "cargo_version": "0.5.0",
   "build_reason": "manual-build",
@@ -13,12 +13,12 @@
   "files_count": 5,
   "words_total": 1011,
   "bytes_total": 7500,
-  "pack_checksum": "5bb1bedf91cde2a9b7e17ef638cacc688babd84fe0a9d201b55b4d5825a575a4",
+  "pack_checksum": "193360e14aeac78ed8a489555bcd651707bbb9d4ee6e0113969e385ca81c5d3c",
   "stable_checksum": "331def434b834d307dd7aec4a000f5c79c69a2d6f99046ebf3de29f3a79c2756",
   "files": [
     {
       "path": "00_START_HERE.md",
-      "sha256": "03bf60bf649eb347846ed19030dfcd5bc3ff8a8d2e889b1fc3ec779422e7eedc",
+      "sha256": "b1741d31ac9a510f44f68a6060c9e7f32d7a80cc2e77578529904f15fe363754",
       "bytes": 1260,
       "words": 175
     },

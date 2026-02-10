@@ -46,27 +46,6 @@ From zero to a working skill query in under a minute.
 
 ![Setup Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-setup.webp)
 
-### Context Pack Creation
-
-Create and wire a context pack for token-efficient repo understanding:
-
-```bash
-# One-shot project setup + context pack wiring
-bridge setup --context-pack
-
-# Or run explicitly
-bridge context-pack build
-bridge context-pack install-hooks
-```
-
-![Context Pack Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-context-pack.webp)
-
-### Trash Talk
-
-`bridge trash-talk` roasts your agents based on their session content.
-
-![Trash Talk Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-trash-talk.webp)
-
 </details>
 
 ## Quick Start
@@ -130,6 +109,12 @@ Ask your agent explicitly:
 
 > "Understand this repo end-to-end using the context pack first, then deep dive only where needed."
 
+### Context Pack Demo
+
+Create and wire a context pack for token-efficient repo understanding:
+
+![Context Pack Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-context-pack.webp)
+
 ### Main Push Sync Policy
 
 - Pushes that do not target `main`: skipped.
@@ -191,6 +176,12 @@ sequenceDiagram
 ![Architecture sequence diagram](./docs/architecture.svg)
 
 </details>
+
+## Easter Egg
+
+`bridge trash-talk` roasts your agents based on their session content.
+
+![Trash Talk Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-trash-talk.webp)
 
 ## Choose Your Path
 
