@@ -83,11 +83,7 @@ bridge context-pack check-freshness --base origin/main
 - `.agent-context/current/` is committed in git for shared agent context and rollback via git history.
 - `.agent-context/snapshots/` and `.agent-context/history.jsonl` are local-only and git-ignored.
 - npm package publishes exclude `.agent-context/`, so context-pack files are not shipped to package consumers.
-- Recover local state with:
-
-```bash
-bridge context-pack rollback
-```
+- Recovery matrix: `.agent-context/current/` -> `git checkout <commit> -- .agent-context/current`; `.agent-context/snapshots/` -> `bridge context-pack rollback`.
 
 ## Demo
 
