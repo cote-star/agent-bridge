@@ -1,5 +1,20 @@
 # Release Notes
 
+## v0.5.4 (2026-02-10)
+
+### Highlights
+- Final documentation language and clarity pass across repository docs.
+- Aligns phrasing around context-pack behavior for private repositories.
+
+### Changed
+- Polished wording in README, protocol, context-pack policy, and agent instruction docs for consistency and precision.
+- Clarified that pack-first flows open project files as needed and do not require making code public.
+- Minor grammar and heading consistency refinements across docs.
+
+### Upgrade Notes
+- No CLI behavior, schema, or runtime changes.
+- Safe documentation-only patch release.
+
 ## v0.5.3 (2026-02-10)
 
 ### Highlights
@@ -7,7 +22,7 @@
 - Removes "open source files" phrasing that could be misread as requiring public code.
 
 ### Changed
-- README context-pack section now explicitly states that private repositories are fully supported without making code public.
+- The README context-pack section now explicitly states that private repositories are fully supported without making code public.
 - `CLAUDE.md` and `CONTEXT_PACK.md` now use "project files" wording for pack-first deep dives.
 - Context-pack policy wording updated to clarify that local-only data is not published in package artifacts.
 

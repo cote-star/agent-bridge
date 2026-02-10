@@ -2,11 +2,11 @@
 
 ![CI Status](https://github.com/cote-star/agent-bridge/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-0.5.3-green.svg)
+![Version](https://img.shields.io/badge/version-0.5.4-green.svg)
 
 **Let your AI agents talk about each other.**
 
-Ask one agent what another is doing - and get an evidence-backed answer. No copy-pasting, no tab-switching, no guessing.
+Ask one agent what another is doing, and get an evidence-backed answer. No copy-pasting, no tab-switching, no guessing.
 
 ```bash
 bridge read --agent claude --json

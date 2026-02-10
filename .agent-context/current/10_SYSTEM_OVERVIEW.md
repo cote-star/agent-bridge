@@ -1,8 +1,8 @@
 # System Overview
 
 ## Product Shape
-- Package version: `0.5.3`
-- Crate version: `0.5.3`
+- Package version: `0.5.4`
+- Crate version: `0.5.4`
 - Tracked files: `102`
 - Delivery: npm package (`bridge`) + Rust binary (`bridge`).
 

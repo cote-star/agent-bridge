@@ -9,7 +9,7 @@ When asked to understand this repository end-to-end:
 2. Use `.agent-context/current/manifest.json` + `20_CODE_MAP.md` to target only relevant source files.
 3. Open additional files only when the current task requires deeper proof.
 
-## If Context Pack Is Missing Or Stale
+## If Context Pack Is Missing or Stale
 Run:
 
 ```bash
