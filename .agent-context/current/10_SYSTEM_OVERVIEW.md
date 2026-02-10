@@ -3,7 +3,7 @@
 ## Product Shape
 - Package version: `0.5.0`
 - Crate version: `0.5.0`
-- Tracked files: `100`
+- Tracked files: `102`
 - Delivery: npm package (`bridge`) + Rust binary (`bridge`).
 
 ## Runtime Architecture
@@ -35,6 +35,6 @@
 - scripts: 24 tracked files
 - cli/src: 10 tracked files
 - schemas: 5 tracked files
-- fixtures: 30 tracked files
+- fixtures: 31 tracked files
 - .github/workflows: 2 tracked files
-- docs: 8 tracked files
+- docs: 9 tracked files

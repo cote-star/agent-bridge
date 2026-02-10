@@ -170,6 +170,22 @@ The bridge sits between your agent and other agents' session logs. You talk to y
 
 ![Before/after workflow animation](./docs/silo-tax-before-after.webp)
 
+```mermaid
+sequenceDiagram
+    participant User
+    participant Agent as Your Agent (Codex, Claude, etc.)
+    participant Bridge as bridge CLI
+    participant Sessions as Other Agent Sessions
+
+    User->>Agent: "What is Claude doing?"
+    Agent->>Bridge: bridge read --agent claude --json
+    Bridge->>Sessions: Scan ~/.claude/projects/*.jsonl
+    Sessions-->>Bridge: Raw session data
+    Bridge->>Bridge: Redact secrets, format
+    Bridge-->>Agent: Structured JSON
+    Agent-->>User: Evidence-backed natural language answer
+```
+
 <details><summary>Diagram not rendering? View as image</summary>
 
 ![Architecture sequence diagram](./docs/architecture.svg)
