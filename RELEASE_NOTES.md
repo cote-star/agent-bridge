@@ -1,5 +1,20 @@
 # Release Notes
 
+## v0.5.1 (2026-02-10)
+
+### Highlights
+- Improves demo readability in GitHub README with sharper text rendering.
+- Adds a dedicated context-pack demo flow in the same terminal visual style.
+
+### Changed
+- Tuned demo recorder defaults for README display (`1080x640`) and explicit high-effort lossless WebP encoding.
+- Increased terminal text weight in demo players to improve legibility after scaling.
+- Updated context-pack demo layout to two panes for clearer text density.
+
+### Upgrade Notes
+- No CLI behavior changes.
+- Rebuilt demo assets in `docs/demo-*.webp` and context-pack metadata snapshots.
+
 ## v0.5.0 (2026-02-10)
 
 ### Highlights

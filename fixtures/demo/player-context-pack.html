@@ -24,10 +24,11 @@
             color: var(--fg);
             font-family: 'SF Mono', 'Menlo', 'Monaco', 'Cascadia Code', 'Courier New', monospace;
             font-size: 15px;
+            font-weight: 500;
             height: 100vh;
             padding: 16px;
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr;
             gap: 12px;
             overflow: hidden;
         }
@@ -122,13 +123,6 @@
     <div class="terminal">
         <div class="titlebar">
             <div class="traffic-lights"><span class="tl-red"></span><span class="tl-yellow"></span><span class="tl-green"></span></div>
-            <div class="titlebar-text"><span style="color:var(--gemini-accent)">&#10022;</span> Gemini CLI</div>
-        </div>
-        <div class="content" id="term-gemini"></div>
-    </div>
-    <div class="terminal">
-        <div class="titlebar">
-            <div class="traffic-lights"><span class="tl-red"></span><span class="tl-yellow"></span><span class="tl-green"></span></div>
             <div class="titlebar-text"><span style="color:var(--claude-accent)">&#10095;</span> Claude Code</div>
         </div>
         <div class="content" id="term-claude"></div>
@@ -144,7 +138,6 @@
 
     <script>
         const terms = {
-            gemini: document.getElementById('term-gemini'),
             claude: document.getElementById('term-claude'),
             codex: document.getElementById('term-codex')
         };
@@ -193,7 +186,7 @@
 
         async function runDemo() {
             const progressBar = document.getElementById('progress');
-            const totalDuration = 17000;
+            const totalDuration = 15000;
             const startTime = Date.now();
             const progressInterval = setInterval(() => {
                 const pct = Math.min(((Date.now() - startTime) / totalDuration) * 100, 100);
@@ -202,14 +195,11 @@
             }, 100);
 
             // === INIT ===
-            line('gemini', '');
-            html('gemini', '<span class="dim">Gemini CLI v2.0 &mdash; ~/projects/bridge</span>');
-            line('gemini', '');
             line('claude', '');
             html('claude', '<span class="dim">Claude Code v1.0 &mdash; ~/projects/bridge</span>');
             line('claude', '');
             line('codex', '');
-            html('codex', '<span class="dim">Codex CLI &mdash; Agent Bridge v0.5.0</span>');
+            html('codex', '<span class="dim">Codex CLI &mdash; Agent Bridge v0.5.1</span>');
             html('codex', '<span class="dim">Waiting for repo context...</span>');
             line('codex', '');
             await wait(1200);
@@ -254,15 +244,7 @@
             line('codex', '');
             await wait(1100);
 
-            // === SCENE 3: Non-main push skips sync ===
-            html('gemini', '<span class="gemini-prompt">~/bridge</span> <span class="dim">$</span> <span class="user-input">git push origin feat/demo-copy</span>');
-            line('gemini', '');
-            await wait(350);
-            html('gemini', '<span class="dim">[context-pack] skipped (push is not targeting main)</span>');
-            line('gemini', '');
-            await wait(700);
-
-            // === SCENE 4: Main push updates pack ===
+            // === SCENE 3: Main push updates pack ===
             html('claude', '<span class="claude-prompt">~/bridge</span> <span class="dim">$</span> <span class="user-input">git push origin main</span>');
             line('claude', '');
             await wait(300);
@@ -272,7 +254,7 @@
             line('claude', '');
             await wait(650);
 
-            // === SCENE 5: Codex confirms fresh state ===
+            // === SCENE 4: Codex confirms fresh state ===
             toolCall('codex', 'bridge context-pack check-freshness --base origin/main');
             await wait(350);
             html('codex', '<span class="success">PASS context-pack-freshness (context pack was updated)</span>');

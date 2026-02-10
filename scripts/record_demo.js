@@ -18,7 +18,7 @@ const fs = require('fs');
 const { execFileSync, execSync } = require('child_process');
 const os = require('os');
 
-const DEFAULT_VIEWPORT = { width: 1440, height: 720 };
+const DEFAULT_VIEWPORT = { width: 1080, height: 640 };
 const DEFAULT_FPS = 10;
 const DEFAULT_DURATION_MS = 24000;
 
@@ -106,7 +106,7 @@ function getArgValue(name, fallback = null) {
 
     const delay = Math.round(1000 / fps);
     // img2webp -loop 0 -d <delay> frame1.png -d <delay> frame2.png ... -o out.webp
-    const args = ['-loop', '0'];
+    const args = ['-loop', '0', '-lossless', '-m', '6'];
     for (const fp of framePaths) {
         args.push('-d', String(delay), fp);
     }
