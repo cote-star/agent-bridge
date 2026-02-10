@@ -1,11 +1,13 @@
 [package]
 name = "agent-bridge"
-version = "0.5.1"
+version = "0.5.2"
 edition = "2021"
+rust-version = "1.74"
 description = "Local-first CLI to read, compare, and hand off context across Codex, Claude, Gemini, and Cursor sessions."
 license = "MIT"
 repository = "https://github.com/cote-star/agent-bridge"
 homepage = "https://github.com/cote-star/agent-bridge"
+documentation = "https://docs.rs/agent-bridge"
 readme = "../README.md"
 keywords = ["cli", "ai-agents", "codex", "claude", "gemini"]
 categories = ["command-line-utilities", "development-tools"]

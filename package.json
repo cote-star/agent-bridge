@@ -1,6 +1,6 @@
 {
   "name": "agent-bridge",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Local-first CLI to read, compare, and hand off context across Codex, Claude, Gemini, and Cursor sessions.",
   "keywords": [
     "agent-bridge",
@@ -13,18 +13,24 @@
     "session",
     "handoff",
     "cross-agent",
-    "local-first"
+    "local-first",
+    "context-pack",
+    "multi-agent"
   ],
   "private": false,
+  "preferGlobal": true,
   "type": "commonjs",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cote-star/agent-bridge.git"
+    "url": "git+https://github.com/cote-star/agent-bridge.git"
   },
-  "homepage": "https://github.com/cote-star/agent-bridge",
+  "homepage": "https://github.com/cote-star/agent-bridge#readme",
   "bugs": {
     "url": "https://github.com/cote-star/agent-bridge/issues"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "bin": {
     "bridge": "scripts/read_session.cjs",

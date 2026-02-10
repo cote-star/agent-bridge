@@ -1,5 +1,25 @@
 # Release Notes
 
+## v0.5.2 (2026-02-10)
+
+### Highlights
+- Adds full metadata polish for npm and crates.io publication quality.
+- Declares Rust MSRV explicitly so crates metadata shows a known `rust-version`.
+- Improves demo maintainability by removing hardcoded package versions from demo text.
+
+### Added
+- `rust-version = "1.74"` in `cli/Cargo.toml`.
+- `documentation = "https://docs.rs/agent-bridge"` in `cli/Cargo.toml`.
+- npm metadata refinements: `preferGlobal`, Node `engines`, and expanded discoverability keywords.
+
+### Changed
+- Normalized npm `homepage` to `#readme`.
+- Demo scripts and assets remain functionally unchanged, but visual labels no longer hardcode release version text.
+
+### Upgrade Notes
+- No runtime CLI behavior changes.
+- Safe patch upgrade for both npm and crates users.
+
 ## v0.5.1 (2026-02-10)
 
 ### Highlights
