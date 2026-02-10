@@ -23,7 +23,7 @@
             background: var(--bg);
             color: var(--fg);
             font-family: 'SF Mono', 'Menlo', 'Monaco', 'Cascadia Code', 'Courier New', monospace;
-            font-size: 12.5px;
+            font-size: 14px;
             height: 100vh;
             padding: 16px;
             display: grid;
@@ -59,7 +59,7 @@
         .titlebar-text {
             flex: 1;
             text-align: center;
-            font-size: 12px;
+            font-size: 13px;
             color: var(--dim);
             font-weight: 500;
         }
@@ -75,8 +75,8 @@
         .content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
         .cursor {
             display: inline-block;
-            width: 7px;
-            height: 14px;
+            width: 8px;
+            height: 15px;
             background: var(--fg);
             animation: blink 1s step-end infinite;
             vertical-align: text-bottom;
@@ -96,7 +96,7 @@
             display: inline-block;
             padding: 0 6px;
             border-radius: 3px;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 600;
         }
         .badge-green { background: rgba(63,185,80,0.15); color: var(--green); }
@@ -106,7 +106,7 @@
             border-left: 2px solid currentColor;
             padding-left: 8px;
             margin: 4px 0;
-            font-size: 11.5px;
+            font-size: 12.5px;
         }
         .claude-tool {
             color: var(--dim);
@@ -239,7 +239,7 @@
             html('claude', '<span class="dim">Claude Code v1.0 &mdash; ~/projects/checkout</span>');
             line('claude', '');
             line('codex', '');
-            html('codex', '<span class="dim">Codex CLI &mdash; Agent Bridge v0.4.3</span>');
+            html('codex', '<span class="dim">Codex CLI &mdash; Agent Bridge v0.5.0</span>');
             html('codex', '<span class="dim">Monitoring 2 agents...</span>');
             line('codex', '');
             await wait(1500);

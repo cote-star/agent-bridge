@@ -7,6 +7,7 @@ Thanks for helping improve Agent Bridge.
 1. Clone the repo.
 2. Install Node dependencies: `npm ci`
 3. Verify Rust toolchain is available: `cargo --version`
+4. For architecture, structure, and demo generation details, see `docs/DEVELOPMENT.md`.
 
 ## Core Commands
 

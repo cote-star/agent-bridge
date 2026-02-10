@@ -3,7 +3,7 @@
 ## Product Shape
 - Package version: `0.5.0`
 - Crate version: `0.5.0`
-- Tracked files: `97`
+- Tracked files: `98`
 - Delivery: npm package (`bridge`) + Rust binary (`bridge`).
 
 ## Runtime Architecture

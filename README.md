@@ -6,7 +6,7 @@
 
 **Let your AI agents talk about each other.**
 
-Ask one agent what another is doing — and get an evidence-backed answer. No copy-pasting, no tab-switching, no guessing.
+Ask one agent what another is doing - and get an evidence-backed answer. No copy-pasting, no tab-switching, no guessing.
 
 ```bash
 bridge read --agent claude --json
@@ -14,76 +14,15 @@ bridge read --agent claude --json
 
 ## How It Works
 
-1. **Ask naturally** — "What is Claude doing?" / "Did Gemini finish the API?"
-2. **Agent runs bridge** — Your agent calls `bridge read`, `bridge compare`, etc. behind the scenes
-3. **Evidence-backed answer** — Sources cited, divergences flagged, no hallucination
+1. **Ask naturally** - "What is Claude doing?" / "Did Gemini finish the API?"
+2. **Agent runs bridge** - Your agent calls `bridge read`, `bridge compare`, etc. behind the scenes.
+3. **Evidence-backed answer** - Sources cited, divergences flagged, no hallucination.
 
 **Tenets:**
-- **Local-first** — reads directly from agent session logs on your machine. No data leaves.
-- **Evidence-based** — every claim tracks to a specific source session file.
-- **Privacy-focused** — automatically redacts API keys, tokens, and passwords.
-- **Dual parity** — ships Node.js + Rust CLIs with identical output contracts.
-
-## Context Pack
-
-A context pack is an agent-first, token-efficient repo briefing for end-to-end understanding tasks.
-Instead of re-reading the full repository on every request, agents start from `.agent-context/current/` and open source files only when needed.
-
-### What It Includes
-
-- `00_START_HERE.md`: read order, scope rules, current snapshot metadata
-- `10_SYSTEM_OVERVIEW.md`: architecture, command surface, runtime flow
-- `20_CODE_MAP.md`: high-impact files and extension points
-- `30_BEHAVIORAL_INVARIANTS.md`: behavior and contract constraints
-- `40_OPERATIONS_AND_RELEASE.md`: tests, release, maintenance workflow
-- `manifest.json`: machine-readable checksums and metadata
-
-### Why Use It
-
-- Cuts token/context usage for "understand this repo end-to-end" prompts.
-- Gives agents a deterministic onboarding path instead of ad-hoc codebase scans.
-- Reduces behavior drift risk by surfacing invariants and Node/Rust parity hotspots early.
-
-### Recommended Workflow
-
-```bash
-# One-shot setup (recommended for new installs)
-bridge setup --context-pack
-
-# Manual build/refresh
-bridge context-pack build
-
-# Install pre-push hook (syncs only for main pushes when relevant)
-bridge context-pack install-hooks
-```
-
-Ask your agent explicitly:
-
-> "Understand this repo end-to-end using the context pack first, then deep dive only where needed."
-
-### Main Push Sync Policy
-
-- Pushes that do not target `main`: skipped.
-- Pushes to `main` with no context-relevant changes: skipped.
-- Pushes to `main` with context-relevant changes: rebuilds pack and creates local recovery snapshot.
-- Optional pre-PR guard:
-
-```bash
-bridge context-pack check-freshness --base origin/main
-```
-
-### When Not To Use It
-
-- Do not treat context pack as a substitute for source-of-truth when changing behavior-critical code.
-- Do not expect automatic updates from commits alone or non-`main` branch pushes.
-- Do not put secrets in context-pack content; `.agent-context/current/` is tracked in git.
-
-### Visibility, Recovery, and Packaging
-
-- `.agent-context/current/` is committed in git for shared agent context and rollback via git history.
-- `.agent-context/snapshots/` and `.agent-context/history.jsonl` are local-only and git-ignored.
-- npm package publishes exclude `.agent-context/`, so context-pack files are not shipped to package consumers.
-- Recovery matrix: `.agent-context/current/` -> `git checkout <commit> -- .agent-context/current`; `.agent-context/snapshots/` -> `bridge context-pack rollback`.
+- **Local-first** - reads directly from agent session logs on your machine. No data leaves.
+- **Evidence-based** - every claim tracks to a specific source session file.
+- **Privacy-focused** - automatically redacts API keys, tokens, and passwords.
+- **Dual parity** - ships Node.js + Rust CLIs with identical output contracts.
 
 ## Demo
 
@@ -120,6 +59,12 @@ bridge context-pack build
 bridge context-pack install-hooks
 ```
 
+### Trash Talk
+
+`bridge trash-talk` roasts your agents based on their session content.
+
+![Trash Talk Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-trash-talk.webp)
+
 </details>
 
 ## Quick Start
@@ -141,12 +86,6 @@ bridge doctor
 
 This wires skill triggers into your agent configs (`CLAUDE.md`, `GEMINI.md`, `AGENTS.md`) so agents know how to use the bridge.
 
-To initialize context-pack automation during setup:
-
-```bash
-bridge setup --context-pack
-```
-
 ### 3. Ask
 
 Tell any agent:
@@ -167,6 +106,51 @@ After `bridge setup`, provider instructions follow this behavior:
 - "past N sessions" excludes latest (older N sessions).
 - Ask for a session ID only if initial fetch fails or exact ID is explicitly requested.
 
+## Context Pack
+
+A context pack is an agent-first, token-efficient repo briefing for end-to-end understanding tasks.
+Instead of re-reading the full repository on every request, agents start from `.agent-context/current/` and open source files only when needed.
+
+### Recommended Workflow
+
+```bash
+# One-shot setup (recommended for new installs)
+bridge setup --context-pack
+
+# Manual build/refresh
+bridge context-pack build
+
+# Install pre-push hook (syncs only for main pushes when relevant)
+bridge context-pack install-hooks
+```
+
+Ask your agent explicitly:
+
+> "Understand this repo end-to-end using the context pack first, then deep dive only where needed."
+
+### Main Push Sync Policy
+
+- Pushes that do not target `main`: skipped.
+- Pushes to `main` with no context-relevant changes: skipped.
+- Pushes to `main` with context-relevant changes: rebuilds pack and creates local recovery snapshot.
+
+Optional pre-PR guard:
+
+```bash
+bridge context-pack check-freshness --base origin/main
+```
+
+### Usage Boundaries
+
+- Do not treat context pack as a substitute for source-of-truth when changing behavior-critical code.
+- Do not expect automatic updates from commits alone or non-`main` branch pushes.
+- Do not put secrets in context-pack content; `.agent-context/current/` is tracked in git.
+
+Recovery matrix:
+
+- `.agent-context/current/` -> `git checkout <commit> -- .agent-context/current`
+- `.agent-context/snapshots/` -> `bridge context-pack rollback`
+
 ## Supported Agents
 
 | Feature            | Codex | Gemini | Claude | Cursor |
@@ -180,27 +164,9 @@ After `bridge setup`, provider instructions follow this behavior:
 
 ## Architecture
 
-The bridge sits between your agent and other agents' session logs. You talk to your agent — your agent talks to the bridge.
-
-Before/after view of manual handoffs vs bridge-mediated evidence flow:
+The bridge sits between your agent and other agents' session logs. You talk to your agent - your agent talks to the bridge.
 
 ![Before/after workflow animation](./docs/silo-tax-before-after.webp)
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Agent as Your Agent (Codex, Claude, etc.)
-    participant Bridge as bridge CLI
-    participant Sessions as Other Agent Sessions
-
-    User->>Agent: "What is Claude doing?"
-    Agent->>Bridge: bridge read --agent claude --json
-    Bridge->>Sessions: Scan ~/.claude/projects/*.jsonl
-    Sessions-->>Bridge: Raw session data
-    Bridge->>Bridge: Redact secrets, format
-    Bridge-->>Agent: Structured JSON
-    Agent-->>User: Evidence-backed natural language answer
-```
 
 <details><summary>Diagram not rendering? View as image</summary>
 
@@ -208,298 +174,14 @@ sequenceDiagram
 
 </details>
 
-<details><summary><h2>CLI Reference</h2></summary>
-
-### Command Contract
-
-```bash
-bridge read --agent <codex|gemini|claude|cursor> [--id=<substring>] [--cwd=<path>] [--chats-dir=<path>] [--last=<N>] [--json]
-bridge compare --source <agent[:session-substring]>... [--cwd=<path>] [--normalize] [--json]
-bridge report --handoff <handoff.json> [--cwd=<path>] [--json]
-bridge list --agent <codex|gemini|claude|cursor> [--cwd=<path>] [--limit=<N>] [--json]
-bridge search <query> --agent <codex|gemini|claude|cursor> [--cwd=<path>] [--limit=<N>] [--json]
-bridge setup [--cwd=<path>] [--dry-run] [--force] [--context-pack] [--json]
-bridge doctor [--cwd=<path>] [--json]
-bridge context-pack <build|sync-main|install-hooks|rollback|check-freshness> [...]
-```
-
-### Reading a Session
-
-```bash
-# Read from Codex (defaults to latest session, last message)
-bridge read --agent codex
-
-# Read from Claude, scoped to current working directory
-bridge read --agent claude --cwd /path/to/project
-
-# Read the previous (past) Claude session
-bridge list --agent claude --cwd /path/to/project --limit 2 --json
-bridge read --agent claude --id "<second-session-id>" --cwd /path/to/project
-
-# Read the last 5 assistant messages from a session
-bridge read --agent codex --id "fix-bug" --last 5
-
-# Read from Cursor
-bridge read --agent cursor --json
-
-# Get machine-readable JSON output
-bridge read --agent gemini --json
-```
-
-When `--last N` is greater than 1, multiple messages are separated by `\n---\n` in the `content` field.
-
-**JSON output includes metadata:**
-
-```json
-{
-  "agent": "codex",
-  "source": "/path/to/session.jsonl",
-  "content": "The assistant's response...",
-  "warnings": [],
-  "session_id": "session-abc123",
-  "cwd": "/workspace/project",
-  "timestamp": "2026-01-15T10:30:00Z",
-  "message_count": 12,
-  "messages_returned": 1
-}
-```
-
-### Listing Sessions
-
-```bash
-# List the 10 most recent Codex sessions
-bridge list --agent codex --json
-
-# Limit results
-bridge list --agent claude --limit 5 --json
-
-# Scope to a working directory
-bridge list --agent codex --cwd /path/to/project --json
-```
-
-**JSON output:**
-
-```json
-[
-  {
-    "session_id": "session-abc123",
-    "agent": "codex",
-    "cwd": "/workspace/project",
-    "modified_at": "2026-01-15T10:30:00Z",
-    "file_path": "/home/user/.codex/sessions/2026/01/15/session-abc123.jsonl"
-  }
-]
-```
-
-### Searching Sessions
-
-```bash
-# Find sessions mentioning "authentication"
-bridge search "authentication" --agent claude --json
-
-# Limit results
-bridge search "bug fix" --agent codex --limit 3 --json
-```
-
-### Comparing Agents
-
-```bash
-# Compare latest sessions across agents
-bridge compare --source codex --source gemini --source claude --json
-
-# Compare specific sessions
-bridge compare --source codex:fix-bug --source claude:fix-bug --json
-
-# Ignore whitespace differences
-bridge compare --source codex --source gemini --normalize --json
-```
-
-The `--normalize` flag collapses all whitespace before comparison.
-
-### Reporting
-
-```bash
-bridge report --handoff ./handoff_packet.json --json
-```
-
-### Context Pack
-
-```bash
-# Build or refresh context pack files
-bridge context-pack build
-
-# Install pre-push hook to auto-sync context pack for main pushes
-bridge context-pack install-hooks
-
-# Restore latest local snapshot
-bridge context-pack rollback
-
-# Non-blocking warning check for stale pack updates
-bridge context-pack check-freshness --base origin/main
-```
-
-You can also bootstrap context-pack from setup:
-
-```bash
-bridge setup --context-pack
-```
-
-### Error Codes
-
-When `--json` is active, errors are returned as structured JSON:
-
-```json
-{
-  "error_code": "NOT_FOUND",
-  "message": "No Codex session found."
-}
-```
-
-| Error Code          | Meaning                              |
-| :------------------ | :----------------------------------- |
-| `NOT_FOUND`         | No matching session found            |
-| `PARSE_FAILED`      | Session file could not be parsed     |
-| `INVALID_HANDOFF`   | Malformed handoff packet             |
-| `UNSUPPORTED_AGENT` | Unknown agent type                   |
-| `UNSUPPORTED_MODE`  | Invalid mode in handoff              |
-| `EMPTY_SESSION`     | Session exists but has no messages   |
-| `IO_ERROR`          | General I/O error                    |
-
-### Configuration
-
-Override default paths using environment variables.
-
-| Variable                     | Description                 | Default                                |
-| :--------------------------- | :-------------------------- | :------------------------------------- |
-| `BRIDGE_CODEX_SESSIONS_DIR`  | Path to Codex sessions      | `~/.codex/sessions`                    |
-| `BRIDGE_GEMINI_TMP_DIR`      | Path to Gemini temp chats   | `~/.gemini/tmp`                        |
-| `BRIDGE_CLAUDE_PROJECTS_DIR` | Path to Claude projects     | `~/.claude/projects`                   |
-| `BRIDGE_CURSOR_DATA_DIR`     | Path to Cursor data         | `~/Library/Application Support/Cursor` |
-
-### Redaction
-
-The bridge automatically redacts sensitive data before output:
-
-| Pattern                     | Example Input           | Redacted Output        |
-| :-------------------------- | :---------------------- | :--------------------- |
-| OpenAI-style API keys       | `sk-abc123...`          | `sk-[REDACTED]`        |
-| AWS access key IDs          | `AKIA1234567890ABCDEF`  | `AKIA[REDACTED]`       |
-| Bearer tokens               | `Bearer eyJhbG...`      | `Bearer [REDACTED]`    |
-| Secret assignments          | `api_key="super-secret"` | `api_key=[REDACTED]`  |
-
-Redaction is applied to `api_key`, `apikey`, `token`, `secret`, and `password` assignments with `=` or `:` separators.
-
-</details>
-
-## Development
-
-- **Protocol**: See [`PROTOCOL.md`](https://github.com/cote-star/agent-bridge/blob/main/PROTOCOL.md) for the CLI and JSON specification.
-- **Skill**: See [`SKILL.md`](https://github.com/cote-star/agent-bridge/blob/main/SKILL.md) for cross-agent trigger behavior and evidence workflow.
-- **Contributing**: See [`CONTRIBUTING.md`](https://github.com/cote-star/agent-bridge/blob/main/CONTRIBUTING.md) for setup, tests, and PR expectations.
-- **Local Context Pack**: See [`CONTEXT_PACK.md`](./CONTEXT_PACK.md) for token-efficient agent onboarding context.
-- **Release Notes**: See [`RELEASE_NOTES.md`](./RELEASE_NOTES.md) for release-level changes and upgrade notes.
-
-### Context Pack
-
-The repo supports a context pack for agent onboarding:
-
-```bash
-# Build/update local context pack
-bridge context-pack build
-
-# Install pre-push hook that syncs pack on main pushes when needed
-bridge context-pack install-hooks
-```
-
-The active pack (`.agent-context/current/`) is tracked in git. Recovery snapshots (`.agent-context/snapshots/`) and build history are git-ignored and stay local.
-
-### Project Structure
-
-```
-scripts/
-  read_session.cjs        # Node.js CLI implementation
-  adapters/               # Node.js agent adapters
-    codex.cjs
-    gemini.cjs
-    claude.cjs
-    cursor.cjs
-    registry.cjs
-    utils.cjs
-  conformance.sh          # Cross-implementation parity tests
-  test_edge_cases.sh      # Edge-case and error code tests
-  validate_schemas.sh     # JSON schema validation
-  check_readme_examples.sh
-
-cli/
-  src/
-    main.rs               # Rust CLI entry point
-    agents.rs             # Session parsing, redaction, error codes
-    report.rs             # Compare and report logic
-    adapters/             # Rust agent adapters
-      mod.rs              # AgentAdapter trait + registry
-      codex.rs
-      gemini.rs
-      claude.rs
-      cursor.rs
-
-schemas/
-  handoff.schema.json     # Handoff packet schema
-  read-output.schema.json # Read command output schema
-  list-output.schema.json # List command output schema
-  error.schema.json       # Structured error output schema
-
-fixtures/
-  session-store/          # Test session files per agent
-  golden/                 # Canonical expected outputs for conformance
-```
-
-### Testing
-
-```bash
-npm ci
-
-# Cross-implementation conformance (Node vs Rust parity)
-bash scripts/conformance.sh
-
-# Edge-case tests
-bash scripts/test_edge_cases.sh
-
-# JSON schema validation
-bash scripts/validate_schemas.sh
-
-# Rust unit tests
-cargo test --manifest-path cli/Cargo.toml
-
-# README command verification
-bash scripts/check_readme_examples.sh
-```
-
-### Regenerating Demo Assets
-
-Requires `puppeteer` and `img2webp` (`brew install webp`):
-
-```bash
-npm install --save-dev puppeteer
-node scripts/record_demo.js --input fixtures/demo/player-status.html --output docs/demo-status.webp --duration-ms 22000
-node scripts/record_demo.js --input fixtures/demo/player-handoff.html --output docs/demo-handoff.webp --duration-ms 20000
-node scripts/record_demo.js --input fixtures/demo/player-setup.html --output docs/demo-setup.webp --duration-ms 15000
-node scripts/record_demo.js --input fixtures/demo/player-trash-talk.html --output docs/demo-trash-talk.webp --duration-ms 15000
-npm uninstall puppeteer
-```
-
-### Easter Egg
-
-`bridge trash-talk` roasts your agents based on their session content. Try it.
-
-![Trash Talk Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-trash-talk.webp)
-
-### Adding a New Agent
-
-1. **Rust**: Create `cli/src/adapters/<agent>.rs` implementing `AgentAdapter`, register in `mod.rs`
-2. **Node**: Create `scripts/adapters/<agent>.cjs` exporting `resolve`, `read`, `list`, register in `registry.cjs`
-3. Add agent name to enums in `schemas/*.schema.json`
-4. Add fixtures in `fixtures/session-store/<agent>/` and golden files in `fixtures/golden/`
-5. Add conformance and edge-case tests
+## Choose Your Path
+
+- **I need full command syntax and JSON outputs**: [`docs/CLI_REFERENCE.md`](./docs/CLI_REFERENCE.md)
+- **I need context-pack internals and policy details**: [`CONTEXT_PACK.md`](./CONTEXT_PACK.md)
+- **I am contributing or extending the codebase**: [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md)
+- **I need protocol and schema contract details**: [`PROTOCOL.md`](./PROTOCOL.md)
+- **I need contribution process and PR expectations**: [`CONTRIBUTING.md`](./CONTRIBUTING.md)
+- **I need release-level changes and upgrade notes**: [`RELEASE_NOTES.md`](./RELEASE_NOTES.md)
 
 ---
 
