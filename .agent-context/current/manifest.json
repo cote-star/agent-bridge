@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-02-10T11:38:37.397Z",
+  "generated_at": "2026-02-10T11:47:13.948Z",
   "repo_name": "agent-bridge",
   "repo_root": "/Users/e059303/sandbox/agent-bridge",
   "branch": "main",
-  "head_sha": "08c391a8c1cc64250b7459ff70da094d184c341d",
+  "head_sha": "9a990f7186e920e46e4bfbdd6d6e83d3bd96c931",
   "package_version": "0.5.0",
   "cargo_version": "0.5.0",
   "build_reason": "manual-build",
@@ -12,20 +12,20 @@
   "changed_files": [],
   "files_count": 5,
   "words_total": 1011,
-  "bytes_total": 7499,
-  "pack_checksum": "910c1bccee321342ca6ab598927ecfba62b6e8d79529acbab916f44cf3141a6d",
-  "stable_checksum": "bfd305ddbb0bb44b0ce7ea33ac0a9f8c5d7c2c24e983c0d4f5edfd0a71b0e89c",
+  "bytes_total": 7500,
+  "pack_checksum": "cdf342b10a36cd6befcc0c3987596681d7ee872eddd0f1b47322a61804a38afa",
+  "stable_checksum": "af22bbc76c70016f0e6933e3c1358d0f8ad43a4c583e6d64985075559a3896e2",
   "files": [
     {
       "path": "00_START_HERE.md",
-      "sha256": "aa2e25dc8555197ec41e52c34b2fd76ea002169368a3b41af03f1e505e7b4371",
+      "sha256": "3fa17bb93e82b3f7447a4cb36259577c3937e777c2c9ebb59b24b7929f44b373",
       "bytes": 1260,
       "words": 175
     },
     {
       "path": "10_SYSTEM_OVERVIEW.md",
-      "sha256": "9a99ebdaa3d2db750e4050b0992298aad272155795295b45b578be76bf998450",
-      "bytes": 2026,
+      "sha256": "cd65527d28edb50b32bf3e6839ad3e75cb528a3c26d915f9ded0e47610c6f860",
+      "bytes": 2027,
       "words": 260
     },
     {

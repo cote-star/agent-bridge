@@ -59,6 +59,8 @@ bridge context-pack build
 bridge context-pack install-hooks
 ```
 
+![Context Pack Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-context-pack.webp)
+
 ### Trash Talk
 
 `bridge trash-talk` roasts your agents based on their session content.
