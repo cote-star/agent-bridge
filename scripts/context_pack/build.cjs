@@ -357,6 +357,13 @@ function buildManifest({
   const wordsTotal = filesMeta.reduce((sum, item) => sum + item.words, 0);
   const bytesTotal = filesMeta.reduce((sum, item) => sum + item.bytes, 0);
 
+  // Stable checksum excludes volatile content (00_START_HERE.md has a timestamp)
+  // so that routine rebuilds without meaningful changes don't trigger snapshots.
+  const stableInput = filesMeta
+    .filter((meta) => meta.path !== '00_START_HERE.md')
+    .map((meta) => `${meta.path}:${meta.sha256}`)
+    .join('\n');
+
   return {
     schema_version: 1,
     generated_at: generatedAt,
@@ -373,6 +380,7 @@ function buildManifest({
     words_total: wordsTotal,
     bytes_total: bytesTotal,
     pack_checksum: packChecksum,
+    stable_checksum: sha256(stableInput),
     files: filesMeta,
   };
 }
@@ -490,10 +498,19 @@ function main() {
 
   writeText(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
+  // Use a stable checksum for change detection that excludes volatile fields
+  // (generated_at timestamp). This prevents unnecessary snapshots on routine
+  // rebuilds where only the timestamp changed.
+  const stableInput = filesMeta
+    .filter((meta) => meta.path !== '00_START_HERE.md')
+    .map((meta) => `${meta.path}:${meta.sha256}`)
+    .join('\n');
+  const stableChecksum = sha256(stableInput);
+
   const changed =
     options.forceSnapshot ||
     !previousManifest ||
-    previousManifest.pack_checksum !== manifest.pack_checksum ||
+    previousManifest.stable_checksum !== stableChecksum ||
     previousManifest.head_sha !== manifest.head_sha;
 
   if (changed) {

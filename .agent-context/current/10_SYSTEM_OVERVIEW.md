@@ -3,7 +3,7 @@
 ## Product Shape
 - Package version: `0.4.4`
 - Crate version: `0.4.4`
-- Tracked files: `79`
+- Tracked files: `93`
 - Delivery: npm package (`bridge`) + Rust binary (`bridge`).
 
 ## Runtime Architecture
@@ -31,7 +31,7 @@
 | `trash-talk` | Roast active agents from session content | `scripts/read_session.cjs`, `cli/src/agents.rs` |
 
 ## Tracked Path Density
-- scripts: 17 tracked files
+- scripts: 21 tracked files
 - cli/src: 9 tracked files
 - schemas: 5 tracked files
 - fixtures: 30 tracked files

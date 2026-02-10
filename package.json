@@ -52,6 +52,7 @@
     "context-pack:sync-main": "node scripts/context_pack/sync_main.cjs",
     "context-pack:install-hooks": "bash scripts/context_pack/install_hooks.sh",
     "context-pack:rollback": "node scripts/context_pack/rollback.cjs",
+    "context-pack:check-freshness": "bash scripts/context_pack/check_freshness.sh",
     "demo:status": "node scripts/record_demo.js --input fixtures/demo/player-status.html --output docs/demo-status.webp --duration-ms 22000",
     "demo:handoff": "node scripts/record_demo.js --input fixtures/demo/player-handoff.html --output docs/demo-handoff.webp --duration-ms 20000",
     "demo:setup": "node scripts/record_demo.js --input fixtures/demo/player-setup.html --output docs/demo-setup.webp --duration-ms 15000",

@@ -43,3 +43,6 @@ jobs:
 
       - name: Validate JSON schemas against fixtures and outputs
         run: bash scripts/validate_schemas.sh
+
+      - name: Check context pack freshness
+        run: bash scripts/context_pack/check_freshness.sh
