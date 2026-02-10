@@ -141,7 +141,7 @@ function main() {
     return;
   }
 
-  const buildScript = path.join(repoRoot, 'scripts', 'context_pack', 'build.cjs');
+  const buildScript = path.join(__dirname, 'build.cjs');
   const buildArgs = [
     buildScript,
     '--reason',

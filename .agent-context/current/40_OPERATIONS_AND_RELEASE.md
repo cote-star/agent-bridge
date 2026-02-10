@@ -20,12 +20,12 @@ cargo test --manifest-path cli/Cargo.toml
 4. Build/upload Rust binaries and publish crate when tokens are configured.
 
 ## Context Pack Maintenance Contract
-1. Build pack manually: `npm run context-pack:build`.
-2. Install branch-aware pre-push hook: `npm run context-pack:install-hooks`.
+1. Build pack manually: `bridge context-pack build`.
+2. Install branch-aware pre-push hook: `bridge context-pack install-hooks`.
 3. On `main` push, hook runs `context-pack:sync-main`.
 4. Sync updates the pack only when changed files are context-relevant.
 5. Snapshots are saved under `.agent-context/snapshots/` for rollback/recovery.
 
 ## Rollback/Recovery
-- Restore latest snapshot: `npm run context-pack:rollback`
-- Restore named snapshot: `npm run context-pack:rollback -- --snapshot <snapshot_id>`
+- Restore latest snapshot: `bridge context-pack rollback`
+- Restore named snapshot: `bridge context-pack rollback --snapshot <snapshot_id>`

@@ -3,12 +3,12 @@
 ## Product Shape
 - Package version: `0.4.4`
 - Crate version: `0.4.4`
-- Tracked files: `93`
+- Tracked files: `94`
 - Delivery: npm package (`bridge`) + Rust binary (`bridge`).
 
 ## Runtime Architecture
 1. User asks a provider agent for cross-agent status.
-2. Agent invokes bridge command (`read`, `list`, `search`, `compare`, `report`, `setup`, `doctor`, `trash-talk`).
+2. Agent invokes bridge command (`read`, `list`, `search`, `compare`, `report`, `setup`, `doctor`, `trash-talk`, `context-pack`).
 3. Bridge resolves session stores (Codex/Claude/Gemini/Cursor), applies redaction, and returns terminal text or JSON.
 4. Agent answers user with evidence from bridge output.
 
@@ -29,9 +29,10 @@
 | `setup` | Write provider instruction wiring files | `scripts/read_session.cjs` |
 | `doctor` | Check setup and path wiring | `scripts/read_session.cjs` |
 | `trash-talk` | Roast active agents from session content | `scripts/read_session.cjs`, `cli/src/agents.rs` |
+| `context-pack` | Build/sync/install context-pack automation | `scripts/read_session.cjs`, `scripts/context_pack` |
 
 ## Tracked Path Density
-- scripts: 21 tracked files
+- scripts: 22 tracked files
 - cli/src: 9 tracked files
 - schemas: 5 tracked files
 - fixtures: 30 tracked files

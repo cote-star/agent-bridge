@@ -1,5 +1,6 @@
 mod adapters;
 mod agents;
+mod context_pack;
 mod report;
 mod utils;
 
@@ -127,6 +128,94 @@ enum Commands {
         #[arg(long)]
         cwd: Option<String>,
     },
+
+    /// Build/sync/install context-pack automation
+    #[command(name = "context-pack")]
+    ContextPack {
+        #[command(subcommand)]
+        command: ContextPackCommand,
+    },
+}
+
+#[derive(Subcommand)]
+enum ContextPackCommand {
+    /// Build or refresh context pack files
+    Build {
+        /// Build reason (metadata only)
+        #[arg(long)]
+        reason: Option<String>,
+
+        /// Base SHA for changed-file computation
+        #[arg(long)]
+        base: Option<String>,
+
+        /// Head SHA for changed-file computation
+        #[arg(long)]
+        head: Option<String>,
+
+        /// Override pack directory (default: .agent-context or BRIDGE_CONTEXT_PACK_DIR)
+        #[arg(long)]
+        pack_dir: Option<String>,
+
+        /// Explicit changed file (repeatable)
+        #[arg(long = "changed-file")]
+        changed_files: Vec<String>,
+
+        /// Force creating a new snapshot even when unchanged
+        #[arg(long)]
+        force_snapshot: bool,
+    },
+
+    /// Sync context pack during a main-branch push event
+    #[command(name = "sync-main")]
+    SyncMain {
+        #[arg(long)]
+        local_ref: String,
+
+        #[arg(long)]
+        local_sha: String,
+
+        #[arg(long)]
+        remote_ref: String,
+
+        #[arg(long)]
+        remote_sha: String,
+    },
+
+    /// Install/refresh pre-push hook wiring
+    #[command(name = "install-hooks")]
+    InstallHooks {
+        /// Target directory inside repo (default: current directory)
+        #[arg(long)]
+        cwd: Option<String>,
+
+        /// Preview changes without writing
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Restore context pack from snapshot
+    Rollback {
+        /// Snapshot ID (default: latest)
+        #[arg(long)]
+        snapshot: Option<String>,
+
+        /// Override pack directory (default: .agent-context or BRIDGE_CONTEXT_PACK_DIR)
+        #[arg(long)]
+        pack_dir: Option<String>,
+    },
+
+    /// Warn when context-relevant files changed without pack update
+    #[command(name = "check-freshness")]
+    CheckFreshness {
+        /// Base ref for diff (default: origin/main)
+        #[arg(long)]
+        base: Option<String>,
+
+        /// Working directory (default: current directory)
+        #[arg(long)]
+        cwd: Option<String>,
+    },
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
@@ -200,6 +289,7 @@ fn is_json_mode(command: &Commands) -> bool {
         Commands::List { json, .. } => *json,
         Commands::Search { json, .. } => *json,
         Commands::TrashTalk { .. } => false,
+        Commands::ContextPack { .. } => false,
     }
 }
 
@@ -314,6 +404,54 @@ fn run(cli: Cli) -> Result<()> {
         Commands::TrashTalk { cwd } => {
             let effective = effective_cwd(cwd);
             agents::trash_talk(&effective);
+        }
+        Commands::ContextPack { command } => {
+            match command {
+                ContextPackCommand::Build {
+                    reason,
+                    base,
+                    head,
+                    pack_dir,
+                    changed_files,
+                    force_snapshot,
+                } => {
+                    context_pack::build(context_pack::BuildOptions {
+                        reason,
+                        base,
+                        head,
+                        pack_dir,
+                        changed_files,
+                        force_snapshot,
+                    })?;
+                }
+                ContextPackCommand::SyncMain {
+                    local_ref,
+                    local_sha,
+                    remote_ref,
+                    remote_sha,
+                } => {
+                    context_pack::sync_main(
+                        &local_ref,
+                        &local_sha,
+                        &remote_ref,
+                        &remote_sha,
+                    )?;
+                }
+                ContextPackCommand::InstallHooks { cwd, dry_run } => {
+                    let target_cwd = effective_cwd(cwd);
+                    context_pack::install_hooks(&target_cwd, dry_run)?;
+                }
+                ContextPackCommand::Rollback { snapshot, pack_dir } => {
+                    context_pack::rollback(snapshot.as_deref(), pack_dir.as_deref())?;
+                }
+                ContextPackCommand::CheckFreshness { base, cwd } => {
+                    let target_cwd = effective_cwd(cwd);
+                    context_pack::check_freshness(
+                        base.as_deref().unwrap_or("origin/main"),
+                        &target_cwd,
+                    )?;
+                }
+            }
         }
     }
 

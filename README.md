@@ -244,8 +244,6 @@ bridge report --handoff ./handoff_packet.json --json
 
 ### Context Pack
 
-Context-pack commands are currently available in the Node CLI distribution (`npm install -g agent-bridge`).
-
 ```bash
 # Build or refresh context pack files
 bridge context-pack build

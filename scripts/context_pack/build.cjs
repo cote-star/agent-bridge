@@ -217,7 +217,7 @@ function buildSystemOverview({
 
 ## Runtime Architecture
 1. User asks a provider agent for cross-agent status.
-2. Agent invokes bridge command (\`read\`, \`list\`, \`search\`, \`compare\`, \`report\`, \`setup\`, \`doctor\`, \`trash-talk\`).
+2. Agent invokes bridge command (\`read\`, \`list\`, \`search\`, \`compare\`, \`report\`, \`setup\`, \`doctor\`, \`trash-talk\`, \`context-pack\`).
 3. Bridge resolves session stores (Codex/Claude/Gemini/Cursor), applies redaction, and returns terminal text or JSON.
 4. Agent answers user with evidence from bridge output.
 
@@ -315,15 +315,15 @@ cargo test --manifest-path cli/Cargo.toml
 4. Build/upload Rust binaries and publish crate when tokens are configured.
 
 ## Context Pack Maintenance Contract
-1. Build pack manually: \`npm run context-pack:build\`.
-2. Install branch-aware pre-push hook: \`npm run context-pack:install-hooks\`.
+1. Build pack manually: \`bridge context-pack build\`.
+2. Install branch-aware pre-push hook: \`bridge context-pack install-hooks\`.
 3. On \`main\` push, hook runs \`context-pack:sync-main\`.
 4. Sync updates the pack only when changed files are context-relevant.
 5. Snapshots are saved under \`.agent-context/snapshots/\` for rollback/recovery.
 
 ## Rollback/Recovery
-- Restore latest snapshot: \`npm run context-pack:rollback\`
-- Restore named snapshot: \`npm run context-pack:rollback -- --snapshot <snapshot_id>\`
+- Restore latest snapshot: \`bridge context-pack rollback\`
+- Restore named snapshot: \`bridge context-pack rollback --snapshot <snapshot_id>\`
 `;
 }
 
@@ -433,6 +433,7 @@ function main() {
     { command: 'setup', intent: 'Write provider instruction wiring files', primaryPaths: ['scripts/read_session.cjs'] },
     { command: 'doctor', intent: 'Check setup and path wiring', primaryPaths: ['scripts/read_session.cjs'] },
     { command: 'trash-talk', intent: 'Roast active agents from session content', primaryPaths: ['scripts/read_session.cjs', 'cli/src/agents.rs'] },
+    { command: 'context-pack', intent: 'Build/sync/install context-pack automation', primaryPaths: ['scripts/read_session.cjs', 'scripts/context_pack'] },
   ];
 
   const packRoot = path.resolve(repoRoot, options.packDir);

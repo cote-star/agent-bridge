@@ -26,6 +26,14 @@ jobs:
       - name: Validate Node script syntax
         run: node --check scripts/read_session.cjs
 
+      - name: Validate context-pack script syntax
+        run: |
+          node --check scripts/context_pack/build.cjs
+          node --check scripts/context_pack/sync_main.cjs
+          node --check scripts/context_pack/rollback.cjs
+          node --check scripts/context_pack/install_hooks.cjs
+          node --check scripts/context_pack/check_freshness.cjs
+
       - name: Build Rust CLI
         run: cargo check --manifest-path cli/Cargo.toml
 

@@ -4,10 +4,11 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
+const { execFileSync } = require('child_process');
 const { getAdapter } = require('./adapters/registry.cjs');
 
 const rawArgs = process.argv.slice(2);
-const commandNames = new Set(['read', 'compare', 'report', 'list', 'search', 'setup', 'doctor', 'trash-talk']);
+const commandNames = new Set(['read', 'compare', 'report', 'list', 'search', 'setup', 'doctor', 'trash-talk', 'context-pack']);
 const command = commandNames.has(rawArgs[0]) ? rawArgs[0] : 'read';
 const args = commandNames.has(rawArgs[0]) ? rawArgs.slice(1) : rawArgs;
 
@@ -36,6 +37,7 @@ function printHelp(topic = null) {
     '  report    Generate a coordinator report from a handoff JSON',
     '  setup     Install cross-provider instruction scaffolding in this project',
     '  doctor    Check session paths and provider instruction wiring',
+    '  context-pack  Build/sync/install context-pack automation',
     '',
     'Global Flags:',
     '  -h, --help       Show help',
@@ -49,6 +51,7 @@ function printHelp(topic = null) {
     `  ${binName} report --handoff ./handoff.json --json`,
     `  ${binName} setup`,
     `  ${binName} doctor --json`,
+    `  ${binName} context-pack build`,
   ];
 
   if (topic === 'read') {
@@ -94,12 +97,21 @@ function printHelp(topic = null) {
     lines.push('  --cwd <path> (default: current directory)');
     lines.push('  --dry-run');
     lines.push('  --force (replace existing managed blocks)');
+    lines.push('  --context-pack (also build context pack and install hooks)');
     lines.push('  --json');
   } else if (topic === 'doctor') {
     lines.push('');
     lines.push('doctor options:');
     lines.push('  --cwd <path> (default: current directory)');
     lines.push('  --json');
+  } else if (topic === 'context-pack') {
+    lines.push('');
+    lines.push('context-pack usage:');
+    lines.push('  context-pack build [--reason <text>] [--base <sha>] [--head <sha>] [--force-snapshot]');
+    lines.push('  context-pack sync-main --local-ref <ref> --local-sha <sha> --remote-ref <ref> --remote-sha <sha>');
+    lines.push('  context-pack install-hooks');
+    lines.push('  context-pack rollback [--snapshot <id>]');
+    lines.push('  context-pack check-freshness [--base <git-ref>]');
   }
 
   console.log(lines.join('\n'));
@@ -176,6 +188,61 @@ function getOptionValue(inputArgs, name, fallback = null) {
 
 function hasFlag(inputArgs, name) {
   return inputArgs.includes(name);
+}
+
+function runInternalNodeScript(scriptRelPath, scriptArgs, options = {}) {
+  const scriptPath = path.join(__dirname, scriptRelPath);
+  if (!fs.existsSync(scriptPath)) {
+    throw new Error(`Missing internal script: ${scriptRelPath}`);
+  }
+
+  const cwd = options.cwd || process.cwd();
+  const inheritOutput = options.inheritOutput === true;
+  if (inheritOutput) {
+    execFileSync(process.execPath, [scriptPath, ...scriptArgs], { cwd, stdio: 'inherit' });
+    return { stdout: '', stderr: '' };
+  }
+
+  try {
+    const stdout = execFileSync(process.execPath, [scriptPath, ...scriptArgs], {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return { stdout: (stdout || '').trim(), stderr: '' };
+  } catch (error) {
+    const stdout = (error.stdout || '').toString().trim();
+    const stderr = (error.stderr || '').toString().trim();
+    const details = [stderr, stdout].filter(Boolean).join('\n');
+    throw new Error(details || error.message || `Failed running ${scriptRelPath}`);
+  }
+}
+
+function runContextPackSubcommand(subcommand, subArgs, options = {}) {
+  const scriptBySubcommand = {
+    build: 'context_pack/build.cjs',
+    'sync-main': 'context_pack/sync_main.cjs',
+    rollback: 'context_pack/rollback.cjs',
+    'install-hooks': 'context_pack/install_hooks.cjs',
+    'check-freshness': 'context_pack/check_freshness.cjs',
+  };
+
+  const scriptRelPath = scriptBySubcommand[subcommand];
+  if (!scriptRelPath) {
+    const allowed = Object.keys(scriptBySubcommand).join(', ');
+    throw new Error(`Unknown context-pack subcommand: ${subcommand}. Expected one of: ${allowed}`);
+  }
+
+  return runInternalNodeScript(scriptRelPath, subArgs, options);
+}
+
+function runContextPack(inputArgs) {
+  const subcommand = inputArgs[0];
+  if (!subcommand || subcommand === 'help' || subcommand === '--help' || subcommand === '-h') {
+    printHelp('context-pack');
+    return;
+  }
+  runContextPackSubcommand(subcommand, inputArgs.slice(1), { inheritOutput: true });
 }
 
 function writeFileEnsured(filePath, content) {
@@ -1248,6 +1315,7 @@ function runSetup(inputArgs) {
   const asJson = hasFlag(inputArgs, '--json');
   const dryRun = hasFlag(inputArgs, '--dry-run');
   const force = hasFlag(inputArgs, '--force');
+  const setupContextPack = hasFlag(inputArgs, '--context-pack');
 
   // Validate target directory is not a system path
   if (isSystemDirectory(cwd)) {
@@ -1365,6 +1433,47 @@ function runSetup(inputArgs) {
     });
   }
 
+  if (setupContextPack) {
+    if (dryRun) {
+      operations.push({
+        type: 'context-pack',
+        path: path.join(cwd, '.agent-context', 'current'),
+        status: 'planned',
+        note: 'Would build context pack',
+      });
+      operations.push({
+        type: 'context-pack',
+        path: path.join(cwd, '.githooks', 'pre-push'),
+        status: 'planned',
+        note: 'Would install context-pack pre-push hook',
+      });
+    } else {
+      const buildResult = runContextPackSubcommand(
+        'build',
+        ['--reason', 'setup'],
+        { cwd, inheritOutput: false }
+      );
+      operations.push({
+        type: 'context-pack',
+        path: path.join(cwd, '.agent-context', 'current'),
+        status: buildResult.stdout.includes('unchanged') ? 'unchanged' : 'updated',
+        note: buildResult.stdout || 'Context pack build completed',
+      });
+
+      const hookResult = runContextPackSubcommand(
+        'install-hooks',
+        [],
+        { cwd, inheritOutput: false }
+      );
+      operations.push({
+        type: 'context-pack',
+        path: path.join(cwd, '.githooks', 'pre-push'),
+        status: 'updated',
+        note: hookResult.stdout || 'Installed context-pack pre-push hook',
+      });
+    }
+  }
+
   const changedCount = operations.filter(op => op.status === 'created' || op.status === 'updated').length;
   const result = {
     cwd,
@@ -1447,6 +1556,47 @@ function runDoctor(inputArgs) {
     } catch (error) {
       addCheck(`sessions_${agent}`, 'fail', error.message || String(error));
     }
+  }
+
+  const packManifestPath = path.join(cwd, '.agent-context', 'current', 'manifest.json');
+  addCheck(
+    'context_pack_manifest',
+    fs.existsSync(packManifestPath) ? 'pass' : 'warn',
+    fs.existsSync(packManifestPath)
+      ? `Found: ${packManifestPath}`
+      : `Missing: ${packManifestPath} (run: bridge context-pack build)`
+  );
+
+  let hooksPath = null;
+  try {
+    hooksPath = execFileSync('git', ['config', '--get', 'core.hooksPath'], {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim() || null;
+  } catch (_error) {
+    hooksPath = null;
+  }
+
+  if (hooksPath) {
+    addCheck(
+      'context_pack_hooks_path',
+      hooksPath === '.githooks' ? 'pass' : 'warn',
+      hooksPath === '.githooks'
+        ? 'Git hooks path set to .githooks'
+        : `Git hooks path is ${hooksPath} (expected .githooks for context-pack pre-push automation)`
+    );
+    const prePushPath = path.join(cwd, hooksPath, 'pre-push');
+    const prePushExists = fs.existsSync(prePushPath);
+    addCheck(
+      'context_pack_pre_push',
+      prePushExists ? 'pass' : 'warn',
+      prePushExists
+        ? `Found: ${prePushPath}`
+        : `Missing: ${prePushPath} (run: bridge context-pack install-hooks)`
+    );
+  } else {
+    addCheck('context_pack_hooks_path', 'warn', 'Git hooks path not configured');
   }
 
   const hasFail = checks.some(c => c.status === 'fail');
@@ -1743,6 +1893,8 @@ try {
     runSetup(args);
   } else if (command === 'doctor') {
     runDoctor(args);
+  } else if (command === 'context-pack') {
+    runContextPack(args);
   } else if (command === 'trash-talk') {
     runTrashTalk(args);
   } else {
