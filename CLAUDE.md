@@ -1,7 +1,7 @@
 # Claude Code Instructions
 
-> **Naming convention**: The context pack lives in `.agent-context/` but npm
-> scripts use the `context-pack:*` prefix (e.g. `npm run context-pack:build`).
+> **Naming convention**: Use `bridge context-pack ...` commands. Legacy npm
+> wrappers (`npm run context-pack:*`) are still available in this repo.
 
 ## Context Pack
 
@@ -16,7 +16,7 @@ When asked to understand this repository (or any "what does this repo do?" inten
 If the context pack is missing or stale, run:
 
 ```bash
-npm run context-pack:build
+bridge context-pack build
 ```
 
 ## Context Pack Maintenance
@@ -26,7 +26,7 @@ needs updating. If the changes affect architecture, commands, behavioral
 invariants, or the code map, run:
 
 ```bash
-npm run context-pack:build
+bridge context-pack build
 ```
 
 Skip for typo-only, comment-only, or test-only changes.

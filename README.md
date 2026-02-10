@@ -138,8 +138,9 @@ bridge compare --source <agent[:session-substring]>... [--cwd=<path>] [--normali
 bridge report --handoff <handoff.json> [--cwd=<path>] [--json]
 bridge list --agent <codex|gemini|claude|cursor> [--cwd=<path>] [--limit=<N>] [--json]
 bridge search <query> --agent <codex|gemini|claude|cursor> [--cwd=<path>] [--limit=<N>] [--json]
-bridge setup [--cwd=<path>] [--dry-run] [--force] [--json]
+bridge setup [--cwd=<path>] [--dry-run] [--force] [--context-pack] [--json]
 bridge doctor [--cwd=<path>] [--json]
+bridge context-pack <build|sync-main|install-hooks|rollback|check-freshness> [...]
 ```
 
 ### Reading a Session
@@ -241,6 +242,30 @@ The `--normalize` flag collapses all whitespace before comparison.
 bridge report --handoff ./handoff_packet.json --json
 ```
 
+### Context Pack
+
+Context-pack commands are currently available in the Node CLI distribution (`npm install -g agent-bridge`).
+
+```bash
+# Build or refresh context pack files
+bridge context-pack build
+
+# Install pre-push hook to auto-sync context pack for main pushes
+bridge context-pack install-hooks
+
+# Restore latest local snapshot
+bridge context-pack rollback
+
+# Non-blocking warning check for stale pack updates
+bridge context-pack check-freshness --base origin/main
+```
+
+You can also bootstrap context-pack from setup:
+
+```bash
+bridge setup --context-pack
+```
+
 ### Error Codes
 
 When `--json` is active, errors are returned as structured JSON:
@@ -295,16 +320,16 @@ Redaction is applied to `api_key`, `apikey`, `token`, `secret`, and `password` a
 - **Contributing**: See [`CONTRIBUTING.md`](https://github.com/cote-star/agent-bridge/blob/main/CONTRIBUTING.md) for setup, tests, and PR expectations.
 - **Local Context Pack**: See [`CONTEXT_PACK.md`](./CONTEXT_PACK.md) for token-efficient agent onboarding context.
 
-### Local Context Pack (Private)
+### Context Pack
 
-The repo supports a local-only context pack for agent onboarding:
+The repo supports a context pack for agent onboarding:
 
 ```bash
 # Build/update local context pack
-npm run context-pack:build
+bridge context-pack build
 
 # Install pre-push hook that syncs pack on main pushes when needed
-npm run context-pack:install-hooks
+bridge context-pack install-hooks
 ```
 
 The active pack (`.agent-context/current/`) is tracked in git. Recovery snapshots (`.agent-context/snapshots/`) and build history are git-ignored and stay local.

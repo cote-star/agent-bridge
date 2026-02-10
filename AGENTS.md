@@ -1,7 +1,7 @@
 # Agent Instructions For This Repo
 
-> **Naming convention**: The context pack directory is `.agent-context/`, but npm
-> scripts use the `context-pack:*` prefix (e.g. `npm run context-pack:build`).
+> **Naming convention**: Use `bridge context-pack ...` commands. Legacy npm
+> wrappers (`npm run context-pack:*`) are still available in this repo.
 
 ## End-to-End Understanding Shortcut
 When asked to understand this repository end-to-end:
@@ -13,14 +13,14 @@ When asked to understand this repository end-to-end:
 Run:
 
 ```bash
-npm run context-pack:build
+bridge context-pack build
 ```
 
 ## Main Push Context Sync
 Install hook once:
 
 ```bash
-npm run context-pack:install-hooks
+bridge context-pack install-hooks
 ```
 
 The pre-push hook updates the context pack only when a push targets `main` and changes context-relevant files.

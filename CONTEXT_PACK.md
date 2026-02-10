@@ -29,16 +29,16 @@ Numeric prefixes keep deterministic read order for agents.
 ## Commands
 ```bash
 # Build/update context pack manually
-npm run context-pack:build
+bridge context-pack build
 
 # Install branch-aware pre-push hook
-npm run context-pack:install-hooks
+bridge context-pack install-hooks
 
 # Sync context pack for a main push event (used by pre-push hook)
-npm run context-pack:sync-main -- --local-ref refs/heads/main --local-sha <local> --remote-ref refs/heads/main --remote-sha <remote>
+bridge context-pack sync-main --local-ref refs/heads/main --local-sha <local> --remote-ref refs/heads/main --remote-sha <remote>
 
 # Restore latest snapshot
-npm run context-pack:rollback
+bridge context-pack rollback
 ```
 
 ## Update Policy
