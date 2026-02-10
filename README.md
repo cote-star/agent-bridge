@@ -24,6 +24,71 @@ bridge read --agent claude --json
 - **Privacy-focused** — automatically redacts API keys, tokens, and passwords.
 - **Dual parity** — ships Node.js + Rust CLIs with identical output contracts.
 
+## Context Pack
+
+A context pack is an agent-first, token-efficient repo briefing for end-to-end understanding tasks.
+Instead of re-reading the full repository on every request, agents start from `.agent-context/current/` and open source files only when needed.
+
+### What It Includes
+
+- `00_START_HERE.md`: read order, scope rules, current snapshot metadata
+- `10_SYSTEM_OVERVIEW.md`: architecture, command surface, runtime flow
+- `20_CODE_MAP.md`: high-impact files and extension points
+- `30_BEHAVIORAL_INVARIANTS.md`: behavior and contract constraints
+- `40_OPERATIONS_AND_RELEASE.md`: tests, release, maintenance workflow
+- `manifest.json`: machine-readable checksums and metadata
+
+### Why Use It
+
+- Cuts token/context usage for "understand this repo end-to-end" prompts.
+- Gives agents a deterministic onboarding path instead of ad-hoc codebase scans.
+- Reduces behavior drift risk by surfacing invariants and Node/Rust parity hotspots early.
+
+### Recommended Workflow
+
+```bash
+# One-shot setup (recommended for new installs)
+bridge setup --context-pack
+
+# Manual build/refresh
+bridge context-pack build
+
+# Install pre-push hook (syncs only for main pushes when relevant)
+bridge context-pack install-hooks
+```
+
+Ask your agent explicitly:
+
+> "Understand this repo end-to-end using the context pack first, then deep dive only where needed."
+
+### Main Push Sync Policy
+
+- Pushes that do not target `main`: skipped.
+- Pushes to `main` with no context-relevant changes: skipped.
+- Pushes to `main` with context-relevant changes: rebuilds pack and creates local recovery snapshot.
+- Optional pre-PR guard:
+
+```bash
+bridge context-pack check-freshness --base origin/main
+```
+
+### When Not To Use It
+
+- Do not treat context pack as a substitute for source-of-truth when changing behavior-critical code.
+- Do not expect automatic updates from commits alone or non-`main` branch pushes.
+- Do not put secrets in context-pack content; `.agent-context/current/` is tracked in git.
+
+### Visibility, Recovery, and Packaging
+
+- `.agent-context/current/` is committed in git for shared agent context and rollback via git history.
+- `.agent-context/snapshots/` and `.agent-context/history.jsonl` are local-only and git-ignored.
+- npm package publishes exclude `.agent-context/`, so context-pack files are not shipped to package consumers.
+- Recover local state with:
+
+```bash
+bridge context-pack rollback
+```
+
 ## Demo
 
 ### The Status Check
