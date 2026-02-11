@@ -4,6 +4,23 @@
 
 No entries yet.
 
+## v0.6.2 (2026-02-11)
+
+### Highlights
+- Adds launch-readiness README sections and metadata updates ahead of promotion.
+- Aligns package metadata across npm and crates.io for consistent discoverability.
+- Clarifies protocol-reference wording in setup intents.
+
+### Changed
+- README now includes the social star badge, "How It Compares" matrix, and an expanded roadmap section.
+- README roadmap now includes planned non-intrusive update notifications with `bridge doctor` status visibility.
+- crates.io keywords in `cli/Cargo.toml` now align with launch messaging (`agent-bridge`, `multi-agent`, `cross-agent`, `context-engineering`).
+- Setup intent text now points to the canonical `PROTOCOL.md` URL.
+
+### Upgrade Notes
+- No CLI behavior, protocol schema, or command output contract changes.
+- Safe patch upgrade focused on docs/metadata and release positioning.
+
 ## v0.6.1 (2026-02-11)
 
 ### Highlights
