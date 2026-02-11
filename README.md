@@ -3,6 +3,7 @@
 ![CI Status](https://github.com/cote-star/agent-bridge/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-0.6.1-green.svg)
+[![Star History](https://img.shields.io/github/stars/cote-star/agent-bridge?style=social)](https://github.com/cote-star/agent-bridge)
 
 **Let your AI agents talk about each other.**
 
@@ -165,6 +166,19 @@ Recovery matrix:
 | **Search**         |  Yes  |  Yes   |  Yes   |  Yes   |
 | **Comparisons**    |  Yes  |  Yes   |  Yes   |  Yes   |
 
+## How It Compares
+
+| | agent-bridge | CrewAI / AutoGen | ccswarm / claude-squad |
+| :--- | :---: | :---: | :---: |
+| **Approach** | Read-only evidence layer | Full orchestration framework | Parallel agent spawning |
+| **Install** | `npm i -g agent-bridge` or `cargo install` | pip + ecosystem | git clone |
+| **Agents** | Codex, Claude, Gemini, Cursor | Provider-specific | Usually Claude-only |
+| **Dependencies** | Zero npm prod deps | Heavy Python/TS stack | Moderate |
+| **Privacy** | Local-first, auto-redaction | Cloud-optional | Varies |
+| **Cold-start solution** | Context Pack (5-doc briefing) | None | None |
+| **Language** | Node.js + Rust (conformance-tested) | Python or TypeScript | Single language |
+| **Philosophy** | Visibility first, orchestration optional | Orchestration first | Task spawning |
+
 ## Architecture
 
 The bridge sits between your agent and other agents' session logs. You talk to your agent - your agent talks to the bridge.
@@ -198,6 +212,14 @@ sequenceDiagram
 `bridge trash-talk` roasts your agents based on their session content.
 
 ![Trash Talk Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-trash-talk.webp)
+
+## Roadmap
+
+- **Context Pack customization** - user-defined doc structure, custom sections, team templates.
+- **Windows installation** - native Windows support (currently macOS/Linux).
+- **Auto-generated instruction wiring** - `bridge setup` creates/updates `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`, plus `.agent-bridge/INTENTS.md` and provider snippets.
+- **Cross-agent context sharing** - agents share context snippets (still read-only, still local).
+- **Agent-to-agent messaging** - agents leave messages for each other via bridge.
 
 ## Choose Your Path
 

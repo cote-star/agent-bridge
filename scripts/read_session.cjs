@@ -375,7 +375,7 @@ function defaultSetupIntents() {
     '5. Do not ask for session ID before first fetch unless user requested exact ID.',
     '6. Do not invent missing context; explicitly call out missing sessions.',
     '',
-    'Core protocol reference: `PROTOCOL.md`.',
+    'Core protocol reference: https://github.com/cote-star/agent-bridge/blob/main/PROTOCOL.md.',
   ].join('\n');
 }
 

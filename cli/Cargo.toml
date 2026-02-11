@@ -9,7 +9,7 @@ repository = "https://github.com/cote-star/agent-bridge"
 homepage = "https://github.com/cote-star/agent-bridge"
 documentation = "https://docs.rs/agent-bridge"
 readme = "../README.md"
-keywords = ["cli", "ai-agents", "codex", "claude", "gemini"]
+keywords = ["agent-bridge", "multi-agent", "cli", "cross-agent", "context-engineering"]
 categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]
