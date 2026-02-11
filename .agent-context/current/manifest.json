@@ -1,38 +1,30 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-02-11T09:25:21.665Z",
+  "generated_at": "2026-02-11T11:00:58.345Z",
   "repo_name": "agent-bridge",
   "repo_root": "/Users/e059303/sandbox/agent-bridge",
   "branch": "main",
-  "head_sha": "53314bf457a313522eb8e5663601658dfa574cf8",
+  "head_sha": "bcc6dbde521e5f84a7f93c39fe4c94d58146b275",
   "package_version": "0.6.1",
   "cargo_version": "0.6.1",
-  "build_reason": "main-push:3c45aa60ba9d..53314bf457a3",
-  "base_sha": "3c45aa60ba9d994d56621dc645890ad9d6ca1dd4",
+  "build_reason": "main-push:b6ee4ee36fd3..bcc6dbde521e",
+  "base_sha": "b6ee4ee36fd38d54fae7eb78da7a0a723cef1827",
   "changed_files": [
-    ".agent-context/current/00_START_HERE.md",
-    ".agent-context/current/10_SYSTEM_OVERVIEW.md",
-    ".agent-context/current/manifest.json",
-    ".github/workflows/release.yml",
-    "PROTOCOL.md",
     "README.md",
-    "RELEASE_NOTES.md",
-    "cli/Cargo.lock",
     "cli/Cargo.toml",
-    "package-lock.json",
-    "package.json"
+    "scripts/read_session.cjs"
   ],
   "files_count": 5,
-  "words_total": 1025,
-  "bytes_total": 7723,
-  "pack_checksum": "11a7febc76e76e15c913537edb4b513fd633dd5943b8b69823bec0619ce8b50a",
+  "words_total": 1009,
+  "bytes_total": 7505,
+  "pack_checksum": "cd007be34ae43668767affa692e6b60c924ed3a85baa053ec79bd1a42f0be809",
   "stable_checksum": "e4807ba2d0dba203353014db8db317a5b3843a2d0bad0217c03133a11291a250",
   "files": [
     {
       "path": "00_START_HERE.md",
-      "sha256": "7f2b840c6d1eef32803bee57f137d4fd4c3a155d520eefcced65139d3c1ef242",
-      "bytes": 1482,
-      "words": 189
+      "sha256": "d9307ea8c0b52fa608596ea28d81b2303bd0b5671e8883bf30106e82ef6a1a88",
+      "bytes": 1264,
+      "words": 173
     },
     {
       "path": "10_SYSTEM_OVERVIEW.md",

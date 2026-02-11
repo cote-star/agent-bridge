@@ -5,10 +5,10 @@ This context pack is the first-stop index for agent work in this repository.
 ## Snapshot
 - Repo: `agent-bridge`
 - Branch at generation: `main`
-- HEAD commit: `53314bf457a313522eb8e5663601658dfa574cf8`
+- HEAD commit: `bcc6dbde521e5f84a7f93c39fe4c94d58146b275`
 - Node package version: `0.6.1`
 - Rust crate version: `0.6.1`
-- Generated at: `2026-02-11T09:25:21.665Z`
+- Generated at: `2026-02-11T11:00:58.345Z`
 
 ## Read Order (Token-Efficient)
 1. Read this file.
@@ -24,17 +24,9 @@ This context pack is the first-stop index for agent work in this repository.
 - Core risk: behavior drift between Node and Rust command/output contracts.
 
 ## Last Change Range Input
-- .agent-context/current/00_START_HERE.md
-- .agent-context/current/10_SYSTEM_OVERVIEW.md
-- .agent-context/current/manifest.json
-- .github/workflows/release.yml
-- PROTOCOL.md
 - README.md
-- RELEASE_NOTES.md
-- cli/Cargo.lock
 - cli/Cargo.toml
-- package-lock.json
-- package.json
+- scripts/read_session.cjs
 
 ## Scope Rule
 For "understand this repo end-to-end" requests:
