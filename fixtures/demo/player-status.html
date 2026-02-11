@@ -224,7 +224,7 @@
 
         async function runDemo() {
             const progressBar = document.getElementById('progress');
-            const totalDuration = 22000;
+            const totalDuration = 24000;
             const startTime = Date.now();
             const progressInterval = setInterval(() => {
                 const pct = Math.min(((Date.now() - startTime) / totalDuration) * 100, 100);
@@ -243,13 +243,13 @@
             html('codex', '<span class="dim">Codex CLI &mdash; Agent Bridge</span>');
             html('codex', '<span class="dim">Monitoring 2 agents...</span>');
             line('codex', '');
-            await wait(1500);
+            await wait(1800);
 
             // === SCENE 1: Gemini designs checkout API (1.5-4s) ===
             html('gemini', '<span class="gemini-prompt">user@checkout &#9656;</span> <span class="user-input">Design checkout API endpoints</span>');
             line('gemini', '');
-            await wait(500);
-            await thinking('gemini', 1200);
+            await wait(700);
+            await thinking('gemini', 1500);
             line('gemini', '');
             html('gemini', '<span class="gemini-prompt">&#10022;</span> Proposed endpoints:');
             line('gemini', '');
@@ -262,42 +262,42 @@
             html('gemini', '<span class="dim">Each returns standard envelope with idempotency key support.</span>');
             line('gemini', '');
 
-            await wait(500);
+            await wait(800);
 
             // === SCENE 2: Claude implements payment (4-7s) ===
             html('claude', '<span class="claude-prompt">~/checkout</span> <span class="dim">$</span> <span class="user-input">Implement payment integration</span>');
             line('claude', '');
-            await wait(400);
-            await thinking('claude', 1000);
+            await wait(600);
+            await thinking('claude', 1300);
             line('claude', '');
             html('claude', '<div class="claude-tool">&#128269; Read checkout/routes.ts</div>');
-            await wait(300);
+            await wait(450);
             html('claude', '<div class="claude-tool">&#9998; Write checkout/stripe.ts</div>');
-            await wait(300);
+            await wait(450);
             html('claude', '<div class="claude-tool">&#9998; Write checkout/webhooks.ts</div>');
-            await wait(400);
+            await wait(600);
             line('claude', '');
             line('claude', 'Wired Stripe payment intents + webhook handler.');
             line('claude', 'Listening for checkout.session.completed events.');
             html('claude', '<span class="dim">Idempotency enforced via provider_event_id.</span>');
             line('claude', '');
 
-            await wait(500);
+            await wait(700);
 
             // === SCENE 3: Codex — "What are they doing?" (7-10s) ===
             html('codex', '<span class="codex-prompt">user</span> <span class="user-input">What are Claude and Gemini doing on checkout?</span>');
             line('codex', '');
-            await wait(400);
+            await wait(600);
 
             toolCall('codex', 'bridge read --agent claude --cwd ~/projects/checkout --last 3 --json');
-            await wait(250);
+            await wait(400);
             toolCall('codex', 'bridge read --agent gemini --cwd ~/projects/checkout --last 3 --json');
-            await wait(250);
+            await wait(400);
             toolCall('codex', 'bridge search "checkout" --agent claude --json');
             line('codex', '');
 
-            await wait(800);
-            await thinking('codex', 1200);
+            await wait(1000);
+            await thinking('codex', 1500);
             line('codex', '');
 
             // === SCENE 4: Natural language answer (10-14s) ===
@@ -315,18 +315,18 @@
             ].join('\n'));
             line('codex', '');
 
-            await wait(1500);
+            await wait(1800);
 
             // === SCENE 5: Follow-up — alignment check (14-18s) ===
             html('codex', '<span class="codex-prompt">user</span> <span class="user-input">Are they aligned on payment confirmation?</span>');
             line('codex', '');
-            await wait(400);
+            await wait(600);
 
             toolCall('codex', 'bridge compare --source gemini --source claude --normalize --json');
             line('codex', '');
 
-            await wait(800);
-            await thinking('codex', 1200);
+            await wait(1000);
+            await thinking('codex', 1400);
             line('codex', '');
 
             html('codex', [
@@ -343,7 +343,7 @@
             ].join('\n'));
             line('codex', '');
 
-            await wait(2000);
+            await wait(2200);
 
             clearInterval(progressInterval);
             progressBar.style.width = '100%';

@@ -166,7 +166,7 @@
 
         async function runDemo() {
             const progressBar = document.getElementById('progress');
-            const totalDuration = 15000;
+            const totalDuration = 19000;
             const startTime = Date.now();
             const progressInterval = setInterval(() => {
                 const pct = Math.min(((Date.now() - startTime) / totalDuration) * 100, 100);
@@ -177,68 +177,68 @@
             // === INIT ===
             html('<span class="dim">Agent Bridge</span>');
             line('');
-            await wait(800);
+            await wait(1200);
 
             // === USER TYPES COMMAND ===
             html('<span class="prompt">~/checkout $</span> ');
             await typeText('bridge trash-talk', 40);
             line('');
-            await wait(600);
+            await wait(900);
 
             // === SCANNING ===
             html('<span class="dim">Scanning agents...</span>');
-            await wait(1200);
+            await wait(1600);
             line('');
 
             // === HEADER ===
             html('<span class="bold" style="font-size:14px">\u{1F5D1}\uFE0F  TRASH TALK</span>');
             line('');
-            await wait(400);
+            await wait(700);
 
             // === ACTIVITY REPORT ===
             html('<span class="bold">\u{1F4CA} Activity Report:</span>');
-            await wait(300);
+            await wait(500);
             html('  <span class="claude bold">Claude</span>    <span class="bold">47</span> messages  <span class="dim">(auth-middleware)</span>');
-            await wait(200);
+            await wait(400);
             html('  <span class="codex bold">Codex</span>    <span class="bold">12</span> messages  <span class="dim">(bug-fix)</span>');
-            await wait(200);
+            await wait(400);
             html('  <span class="gemini bold">Gemini</span>    <span class="bold">8</span> messages  <span class="dim">(api-design)</span>');
-            await wait(200);
+            await wait(400);
             html('  <span class="cursor-agent bold">Cursor</span>     <span class="bold">3</span> messages  <span class="dim">(quick-edit)</span>');
             line('');
-            await wait(600);
+            await wait(900);
 
             // === WINNER ===
             html('<span class="bold">\u{1F3C6} Winner: <span class="claude">Claude</span></span> <span class="dim">(by volume \u2014 congrats on typing the most)</span>');
             html('<span class="yellow">"Quantity over quality, but at least you showed up."</span>');
             line('');
-            await wait(800);
+            await wait(1100);
 
             // === ROASTS ===
             html('<span class="bold">\u{1F480} <span class="codex">Codex</span></span> <span class="dim">(12 messages):</span>');
             html('<span class="yellow">"Breaking things again? Classic."</span>');
             line('');
-            await wait(600);
+            await wait(900);
 
             html('<span class="bold">\u{1F480} <span class="gemini">Gemini</span></span> <span class="dim">(8 messages):</span>');
             html('<span class="yellow">"Did Gemini Google the answer? Old habits die hard."</span>');
             line('');
-            await wait(600);
+            await wait(900);
 
             html('<span class="bold">\u{1F480} <span class="cursor-agent">Cursor</span></span> <span class="dim">(3 messages):</span>');
             html('<span class="yellow">"That\'s it? My .gitignore has more content."</span>');
             line('');
-            await wait(600);
+            await wait(900);
 
             // === VERDICT ===
             html('<span class="pink bold">Verdict: They\'re all trying their best. It\'s just not very good.</span>');
             line('');
-            await wait(400);
+            await wait(700);
 
             html('<span class="prompt">~/checkout $</span> ');
             term.appendChild(cursorEl);
 
-            await wait(2000);
+            await wait(2600);
             clearInterval(progressInterval);
             progressBar.style.width = '100%';
         }
