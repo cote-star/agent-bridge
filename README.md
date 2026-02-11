@@ -46,12 +46,6 @@ Three agents working on checkout. You ask Codex what the others are doing.
 
 ![Status Check Demo](./docs/demo-status.webp)
 
-### Quick Setup
-
-From zero to a working skill query in under a minute.
-
-![Setup Demo](./docs/demo-setup.webp)
-
 </details>
 
 ## Quick Start
@@ -70,6 +64,10 @@ cargo install agent-bridge
 bridge setup
 bridge doctor
 ```
+
+From zero to a working skill query in under a minute:
+
+![Setup Demo](./docs/demo-setup.webp)
 
 This wires skill triggers into your agent configs (`CLAUDE.md`, `GEMINI.md`, `AGENTS.md`) so agents know how to use the bridge.
 
