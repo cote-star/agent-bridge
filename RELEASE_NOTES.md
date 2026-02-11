@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+No entries yet.
+
+## v0.6.0 (2026-02-11)
+
 ### Highlights
 - Tightens repo positioning around evidence-first multi-agent workflows and cold-start reduction.
 - Expands docs coverage for context-pack operations and practical CLI usage recipes.

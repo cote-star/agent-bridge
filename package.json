@@ -1,6 +1,6 @@
 {
   "name": "agent-bridge",
-  "version": "0.5.4",
+  "version": "0.6.0",
   "description": "Local-first CLI to read, compare, and hand off context across Codex, Claude, Gemini, and Cursor sessions.",
   "keywords": [
     "agent-bridge",
