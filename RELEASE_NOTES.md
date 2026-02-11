@@ -4,6 +4,22 @@
 
 No entries yet.
 
+## v0.6.1 (2026-02-11)
+
+### Highlights
+- Fixes README media rendering across GitHub, npm, and crates.io by switching demo/image links to absolute GitHub-hosted URLs.
+- Hardens release workflow behavior for repeatable reruns and registry-safe publishing.
+- Enforces crates.io publish before npm publish in release execution order.
+
+### Changed
+- README image references now use absolute `raw.githubusercontent.com` URLs for all demo and architecture assets.
+- `Release` workflow now checks npm registry version availability and skips npm publish when that exact version already exists.
+- `package-node` now depends on `publish-crate` so crates publish completes first on tag releases.
+
+### Upgrade Notes
+- No CLI behavior or schema contract changes.
+- Recommended patch upgrade for improved package/readme rendering and release reliability.
+
 ## v0.6.0 (2026-02-11)
 
 ### Highlights

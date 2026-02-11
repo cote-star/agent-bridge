@@ -39,7 +39,7 @@ jobs:
           bash scripts/release/verify_versions.sh "${TAG_NAME}"
 
   package-node:
-    needs: verify
+    needs: [verify, publish-crate]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -60,8 +60,20 @@ jobs:
           name: node-package
           path: '*.tgz'
 
+      - name: Check npm version availability
+        id: npm_package_check
+        run: |
+          PKG_NAME="$(node -p "require('./package.json').name")"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if npm view "${PKG_NAME}@${PKG_VERSION}" version --registry https://registry.npmjs.org >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "npm already has ${PKG_NAME}@${PKG_VERSION}; skipping publish."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish to npm
-        if: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
+        if: ${{ github.event_name == 'push' && github.ref_type == 'tag' && steps.npm_package_check.outputs.exists != 'true' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public

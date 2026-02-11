@@ -2,7 +2,7 @@
 
 ![CI Status](https://github.com/cote-star/agent-bridge/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-0.6.0-green.svg)
+![Version](https://img.shields.io/badge/version-0.6.1-green.svg)
 
 **Let your AI agents talk about each other.**
 
@@ -36,13 +36,13 @@ bridge read --agent claude --json
 
 Switch from Gemini to Claude mid-task. Claude picks up where Gemini left off.
 
-![Handoff Demo](./docs/demo-handoff.webp)
+![Handoff Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-handoff.webp)
 
 ### The Status Check
 
 Three agents working on checkout. You ask Codex what the others are doing.
 
-![Status Check Demo](./docs/demo-status.webp)
+![Status Check Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-status.webp)
 
 ## Quick Start
 
@@ -63,7 +63,7 @@ bridge doctor
 
 From zero to a working skill query in under a minute:
 
-![Setup Demo](./docs/demo-setup.webp)
+![Setup Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-setup.webp)
 
 This wires skill triggers into your agent configs (`CLAUDE.md`, `GEMINI.md`, `AGENTS.md`) so agents know how to use the bridge.
 
@@ -121,9 +121,9 @@ Ask your agent explicitly:
 
 Create and wire a context pack for token-efficient repo understanding:
 
-![Context Pack Read-Order](./docs/cold-start-context-pack-hero.webp)
+![Context Pack Read-Order](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/cold-start-context-pack-hero.webp)
 
-![Context Pack Demo](./docs/demo-context-pack.webp)
+![Context Pack Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-context-pack.webp)
 
 ### Main Push Sync Policy
 
@@ -169,7 +169,7 @@ Recovery matrix:
 
 The bridge sits between your agent and other agents' session logs. You talk to your agent - your agent talks to the bridge.
 
-![Before/after workflow animation](./docs/silo-tax-before-after.webp)
+![Before/after workflow animation](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/silo-tax-before-after.webp)
 
 ```mermaid
 sequenceDiagram
@@ -189,7 +189,7 @@ sequenceDiagram
 
 <details><summary>Diagram not rendering? View as image</summary>
 
-![Architecture sequence diagram](./docs/architecture.svg)
+![Architecture sequence diagram](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/architecture.svg)
 
 </details>
 
@@ -197,7 +197,7 @@ sequenceDiagram
 
 `bridge trash-talk` roasts your agents based on their session content.
 
-![Trash Talk Demo](./docs/demo-trash-talk.webp)
+![Trash Talk Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-trash-talk.webp)
 
 ## Choose Your Path
 
