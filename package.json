@@ -15,7 +15,11 @@
     "cross-agent",
     "local-first",
     "context-pack",
-    "multi-agent"
+    "multi-agent",
+    "cold-start",
+    "orchestration",
+    "evidence-based",
+    "context-engineering"
   ],
   "private": false,
   "preferGlobal": true,
@@ -60,10 +64,10 @@
     "context-pack:install-hooks": "node scripts/context_pack/install_hooks.cjs",
     "context-pack:check-freshness": "node scripts/context_pack/check_freshness.cjs",
     "context-pack:rollback": "node scripts/context_pack/rollback.cjs",
-    "demo:status": "node scripts/record_demo.js --input fixtures/demo/player-status.html --output docs/demo-status.webp --duration-ms 22000",
+    "demo:status": "node scripts/record_demo.js --input fixtures/demo/player-status.html --output docs/demo-status.webp --duration-ms 21000",
     "demo:handoff": "node scripts/record_demo.js --input fixtures/demo/player-handoff.html --output docs/demo-handoff.webp --duration-ms 20000",
-    "demo:setup": "node scripts/record_demo.js --input fixtures/demo/player-setup.html --output docs/demo-setup.webp --duration-ms 15000",
-    "demo:context-pack": "node scripts/record_demo.js --input fixtures/demo/player-context-pack.html --output docs/demo-context-pack.webp --duration-ms 15000",
-    "demo:trash-talk": "node scripts/record_demo.js --input fixtures/demo/player-trash-talk.html --output docs/demo-trash-talk.webp --duration-ms 15000"
+    "demo:setup": "node scripts/record_demo.js --input fixtures/demo/player-setup.html --output docs/demo-setup.webp --duration-ms 20000",
+    "demo:context-pack": "node scripts/record_demo.js --input fixtures/demo/player-context-pack.html --output docs/demo-context-pack.webp --duration-ms 20000",
+    "demo:trash-talk": "node scripts/record_demo.js --input fixtures/demo/player-trash-talk.html --output docs/demo-trash-talk.webp --duration-ms 17000"
   }
 }

@@ -136,6 +136,22 @@ You can also bootstrap context-pack from setup:
 bridge setup --context-pack
 ```
 
+## Common Recipes
+
+```bash
+# Handoff recovery: read latest work from another agent in this repo
+bridge read --agent claude --cwd . --json
+
+# Cross-agent verification: validate a claim with search + compare
+bridge search "processPayment" --agent codex --cwd . --json
+bridge compare --source codex --source claude --json
+
+# Cold-start onboarding: build a compact index before deeper reads
+bridge setup --context-pack
+bridge context-pack build
+bridge context-pack check-freshness --base origin/main
+```
+
 ## Error Codes
 
 When `--json` is active, errors are returned as structured JSON:

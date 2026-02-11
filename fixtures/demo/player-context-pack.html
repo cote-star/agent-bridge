@@ -186,7 +186,7 @@
 
         async function runDemo() {
             const progressBar = document.getElementById('progress');
-            const totalDuration = 15000;
+            const totalDuration = 20000;
             const startTime = Date.now();
             const progressInterval = setInterval(() => {
                 const pct = Math.min(((Date.now() - startTime) / totalDuration) * 100, 100);
@@ -202,37 +202,49 @@
             html('codex', '<span class="dim">Codex CLI &mdash; Agent Bridge</span>');
             html('codex', '<span class="dim">Waiting for repo context...</span>');
             line('codex', '');
-            await wait(1200);
+            await wait(1100);
 
             // === SCENE 1: Setup context pack ===
             html('claude', '<span class="claude-prompt">~/bridge</span> <span class="dim">$</span> <span class="user-input">Enable context-pack automation</span>');
             line('claude', '');
-            await wait(400);
+            await wait(700);
             toolCall('claude', 'bridge setup --context-pack');
             line('claude', '');
-            await wait(650);
+            await wait(1100);
             html('claude', [
-                '<span class="success">PASS</span> setup_intents',
-                '<span class="success">PASS</span> snippet_claude',
-                '<span class="success">PASS</span> context_pack_build',
-                '<span class="success">PASS</span> context_pack_hooks',
+                'Agent Bridge setup complete for ~/projects/bridge',
+                '- [created] .agent-bridge/INTENTS.md (Created intent contract)',
+                '- [created] .agent-bridge/providers/codex.md (Created provider snippet)',
+                '- [updated] AGENTS.md (Managed block written)',
+                '- [created] .agent-bridge/providers/claude.md (Created provider snippet)',
+                '- [updated] CLAUDE.md (Managed block written)',
+                '- [created] .agent-bridge/providers/gemini.md (Created provider snippet)',
+                '- [updated] GEMINI.md (Managed block written)',
+                '- [updated] .agent-context/current ([context-pack] updated: .agent-context (snapshot 20260210T114200Z_abc123))',
+                '- [updated] .githooks/pre-push ([context-pack] updated: .githooks/pre-push)',
+                '[context-pack] git hooks path set to .githooks',
+                '[context-pack] pre-push hook is active',
             ].join('\n'));
             line('claude', '');
             html('claude', '<span class="success bold">Context pack ready.</span>');
             line('claude', '');
-            await wait(900);
+            await wait(1300);
 
             // === SCENE 2: Codex uses pack-first flow ===
             html('codex', '<span class="codex-prompt">user</span> <span class="user-input">Understand this repo end-to-end.</span>');
             line('codex', '');
-            await wait(350);
-            toolCall('codex', 'open .agent-context/current/00_START_HERE.md');
-            await wait(350);
-            toolCall('codex', 'open .agent-context/current/20_CODE_MAP.md');
-            await wait(300);
+            await wait(600);
+            toolCall('codex', 'open_file .agent-context/current/00_START_HERE.md');
+            await wait(550);
+            toolCall('codex', 'open_file .agent-context/current/10_SYSTEM_OVERVIEW.md');
+            await wait(550);
+            toolCall('codex', 'open_file .agent-context/current/30_BEHAVIORAL_INVARIANTS.md');
+            await wait(500);
+            toolCall('codex', 'open_file .agent-context/current/20_CODE_MAP.md');
+            await wait(500);
             toolCall('codex', 'bridge context-pack check-freshness --base origin/main');
             line('codex', '');
-            await wait(450);
+            await wait(700);
             html('codex', [
                 '<span class="badge badge-green">Pack-first</span>',
                 '',
@@ -242,24 +254,24 @@
                 '  - scripts/context_pack/build.cjs',
             ].join('\n'));
             line('codex', '');
-            await wait(1100);
+            await wait(1400);
 
             // === SCENE 3: Main push updates pack ===
             html('claude', '<span class="claude-prompt">~/bridge</span> <span class="dim">$</span> <span class="user-input">git push origin main</span>');
             line('claude', '');
-            await wait(300);
+            await wait(500);
             html('claude', '<span class="dim">[context-pack] validating main push for origin (...)</span>');
-            await wait(350);
+            await wait(600);
             html('claude', '<span class="success">[context-pack] updated: .agent-context (snapshot 20260210T114200Z_abc123)</span>');
             line('claude', '');
-            await wait(650);
+            await wait(900);
 
             // === SCENE 4: Codex confirms fresh state ===
             toolCall('codex', 'bridge context-pack check-freshness --base origin/main');
-            await wait(350);
+            await wait(600);
             html('codex', '<span class="success">PASS context-pack-freshness (context pack was updated)</span>');
             line('codex', '');
-            await thinking('codex', 650);
+            await thinking('codex', 1000);
             html('codex', [
                 '<span class="badge badge-yellow">Efficient</span>',
                 '',
@@ -268,12 +280,12 @@
             ].join('\n'));
             line('codex', '');
 
-            await wait(1400);
+            await wait(900);
             clearInterval(progressInterval);
             progressBar.style.width = '100%';
         }
 
-        setTimeout(runDemo, 600);
+        setTimeout(runDemo, 250);
     </script>
 </body>
 </html>

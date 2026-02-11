@@ -8,6 +8,11 @@ This repo includes a context-pack system for token-efficient agent onboarding.
 - Update context only when `main` changes are context-relevant.
 - Keep context history recoverable while ensuring local-only data is not published in package artifacts.
 
+## Layered Model
+- **Layer 0 (Evidence)**: agents can inspect each other's session output with citations.
+- **Layer 1 (Context)**: context-pack provides deterministic repo onboarding.
+- **Layer 2 (Coordination, optional)**: only add orchestration once layers 0-1 are insufficient.
+
 ## Storage Model
 - Active pack: `.agent-context/current/` — **tracked in git** so all contributors share the same context.
 - Snapshots: `.agent-context/snapshots/<timestamp>_<sha>/` — git-ignored, local-only recovery.
@@ -25,6 +30,13 @@ Inside `.agent-context/current/`:
 - `manifest.json`: machine-readable metadata, hashes, and checksums
 
 Numeric prefixes keep deterministic read order for agents.
+
+## Operational Guarantees
+- Deterministic file order via numeric prefixes (`00`, `10`, `20`, `30`, `40`).
+- Integrity metadata via `manifest.json` checksums and pack metadata.
+- Local-only recovery via snapshots and rollback.
+- Main-branch scoped auto-sync to avoid unnecessary churn.
+- Pack content stays reviewable in git (`current/` tracked, recovery artifacts local).
 
 ## Commands
 ```bash
@@ -52,3 +64,8 @@ Relevant paths include:
 - docs that define behavior (`README.md`, `CONTRIBUTING.md`, `SKILL.md`)
 - release/CI wiring (`.github/workflows/`, package metadata, Cargo metadata)
 - fixture/golden data used by behavior tests
+
+## Non-Goals
+- Context pack is not a source-of-truth replacement for behavior-critical edits.
+- Context pack does not write or mutate agent sessions.
+- Context pack does not provide orchestration primitives (routing, queues, live sync).

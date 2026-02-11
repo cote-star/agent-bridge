@@ -12,6 +12,12 @@ Ask one agent what another is doing, and get an evidence-backed answer. No copy-
 bridge read --agent claude --json
 ```
 
+## Why It Exists
+
+- **Silo Tax**: multi-agent workflows break when agents cannot verify each other's work.
+- **Cold-Start Tax**: every new session re-reads the same repo from zero.
+- **Visibility-first architecture**: give agents evidence + context first; add orchestration only when needed.
+
 ## How It Works
 
 1. **Ask naturally** - "What is Claude doing?" / "Did Gemini finish the API?"
@@ -26,27 +32,17 @@ bridge read --agent claude --json
 
 ## Demo
 
-### The Status Check
-
-Three agents working on checkout. You ask Codex what the others are doing.
-
-![Status Check Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-status.webp)
-
-<details><summary>More Demos</summary>
-
 ### The Handoff
 
 Switch from Gemini to Claude mid-task. Claude picks up where Gemini left off.
 
-![Handoff Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-handoff.webp)
+![Handoff Demo](./docs/demo-handoff.webp)
 
-### Quick Setup
+### The Status Check
 
-From zero to a working skill query in under a minute.
+Three agents working on checkout. You ask Codex what the others are doing.
 
-![Setup Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-setup.webp)
-
-</details>
+![Status Check Demo](./docs/demo-status.webp)
 
 ## Quick Start
 
@@ -64,6 +60,10 @@ cargo install agent-bridge
 bridge setup
 bridge doctor
 ```
+
+From zero to a working skill query in under a minute:
+
+![Setup Demo](./docs/demo-setup.webp)
 
 This wires skill triggers into your agent configs (`CLAUDE.md`, `GEMINI.md`, `AGENTS.md`) so agents know how to use the bridge.
 
@@ -93,6 +93,13 @@ A context pack is an agent-first, token-efficient repo briefing for end-to-end u
 Instead of re-reading the full repository on every request, agents start from `.agent-context/current/` and open project files only when needed.
 This works the same for private repositories: the pack is local-first and does not require making your code public.
 
+At a glance:
+
+- `5` ordered docs + `manifest.json` (compact index, not a repo rewrite).
+- Deterministic read order: `00` -> `10` -> `20` -> `30` -> `40`.
+- Main-only smart sync: updates only when context-relevant files change.
+- Local recovery snapshots with rollback support.
+
 ### Recommended Workflow
 
 ```bash
@@ -114,7 +121,9 @@ Ask your agent explicitly:
 
 Create and wire a context pack for token-efficient repo understanding:
 
-![Context Pack Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-context-pack.webp)
+![Context Pack Read-Order](./docs/cold-start-context-pack-hero.webp)
+
+![Context Pack Demo](./docs/demo-context-pack.webp)
 
 ### Main Push Sync Policy
 
@@ -133,6 +142,12 @@ bridge context-pack check-freshness --base origin/main
 - Do not treat context pack as a substitute for source-of-truth when changing behavior-critical code.
 - Do not expect automatic updates from commits alone or non-`main` branch pushes.
 - Do not put secrets in context-pack content; `.agent-context/current/` is tracked in git.
+
+### Layered Model
+
+- **Layer 0 (Evidence)**: cross-agent session reads with citations.
+- **Layer 1 (Context)**: context-pack index for deterministic repo onboarding.
+- **Layer 2 (Coordination, optional)**: explicit orchestration only when layers 0-1 are insufficient.
 
 Recovery matrix:
 
@@ -182,7 +197,7 @@ sequenceDiagram
 
 `bridge trash-talk` roasts your agents based on their session content.
 
-![Trash Talk Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-trash-talk.webp)
+![Trash Talk Demo](./docs/demo-trash-talk.webp)
 
 ## Choose Your Path
 
