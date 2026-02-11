@@ -223,7 +223,7 @@
 
         async function runDemo() {
             const progressBar = document.getElementById('progress');
-            const totalDuration = 22000;
+            const totalDuration = 20000;
             const startTime = Date.now();
             const progressInterval = setInterval(() => {
                 const pct = Math.min(((Date.now() - startTime) / totalDuration) * 100, 100);
@@ -241,7 +241,7 @@
             line('codex', '');
             html('codex', '<span class="dim">Codex CLI &mdash; Agent Bridge</span>');
             line('codex', '');
-            await wait(1800);
+            await wait(1200);
 
             // === SCENE 1: Gemini's prior work (1.5-4s) ===
             html('gemini', '<span class="dim">&#9472;&#9472; Previous session (paused) &#9472;&#9472;</span>');
@@ -258,7 +258,7 @@
             html('gemini', '<span class="warning">Session paused.</span>');
             line('gemini', '');
 
-            await wait(2400);
+            await wait(1800);
 
             // === SCENE 2: Claude picks up (4-8s) ===
             html('claude', '<span class="claude-prompt">~/auth</span> <span class="dim">$</span> <span class="user-input">Pick up where Gemini left off on auth middleware</span>');
@@ -299,7 +299,7 @@
             html('claude', '<span class="success">&#10003; All auth middleware tests passing.</span>');
             line('claude', '');
 
-            await wait(2400);
+            await wait(1800);
 
             // === SCENE 4: Codex verifies continuity (13-18s) ===
             html('codex', '<span class="codex-prompt">user</span> <span class="user-input">Did Claude correctly pick up Gemini\'s work?</span>');
@@ -332,13 +332,13 @@
             ].join('\n'));
             line('codex', '');
 
-            await wait(2300);
+            await wait(900);
 
             clearInterval(progressInterval);
             progressBar.style.width = '100%';
         }
 
-        setTimeout(runDemo, 600);
+        setTimeout(runDemo, 250);
     </script>
 </body>
 </html>

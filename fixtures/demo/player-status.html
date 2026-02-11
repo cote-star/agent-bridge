@@ -224,7 +224,7 @@
 
         async function runDemo() {
             const progressBar = document.getElementById('progress');
-            const totalDuration = 24000;
+            const totalDuration = 21000;
             const startTime = Date.now();
             const progressInterval = setInterval(() => {
                 const pct = Math.min(((Date.now() - startTime) / totalDuration) * 100, 100);
@@ -243,7 +243,7 @@
             html('codex', '<span class="dim">Codex CLI &mdash; Agent Bridge</span>');
             html('codex', '<span class="dim">Monitoring 2 agents...</span>');
             line('codex', '');
-            await wait(1800);
+            await wait(1200);
 
             // === SCENE 1: Gemini designs checkout API (1.5-4s) ===
             html('gemini', '<span class="gemini-prompt">user@checkout &#9656;</span> <span class="user-input">Design checkout API endpoints</span>');
@@ -315,7 +315,7 @@
             ].join('\n'));
             line('codex', '');
 
-            await wait(1800);
+            await wait(1400);
 
             // === SCENE 5: Follow-up — alignment check (14-18s) ===
             html('codex', '<span class="codex-prompt">user</span> <span class="user-input">Are they aligned on payment confirmation?</span>');
@@ -343,13 +343,13 @@
             ].join('\n'));
             line('codex', '');
 
-            await wait(2200);
+            await wait(900);
 
             clearInterval(progressInterval);
             progressBar.style.width = '100%';
         }
 
-        setTimeout(runDemo, 600);
+        setTimeout(runDemo, 250);
     </script>
 </body>
 </html>

@@ -216,7 +216,7 @@
 
         async function runDemo() {
             const progressBar = document.getElementById('progress');
-            const totalDuration = 22000;
+            const totalDuration = 20000;
             const startTime = Date.now();
             const progressInterval = setInterval(() => {
                 const pct = Math.min(((Date.now() - startTime) / totalDuration) * 100, 100);
@@ -234,7 +234,7 @@
             line('codex', '');
             html('codex', '<span class="dim">Codex CLI &mdash; Agent Bridge</span>');
             line('codex', '');
-            await wait(1400);
+            await wait(1000);
 
             // === SCENE 1: Setup (1-4s) ===
             html('claude', '<span class="claude-prompt">~/myapp</span> <span class="dim">$</span> <span class="user-input">Set up agent bridge</span>');
@@ -332,13 +332,13 @@
             ].join('\n'));
             line('codex', '');
 
-            await wait(2000);
+            await wait(900);
 
             clearInterval(progressInterval);
             progressBar.style.width = '100%';
         }
 
-        setTimeout(runDemo, 600);
+        setTimeout(runDemo, 250);
     </script>
 </body>
 </html>
