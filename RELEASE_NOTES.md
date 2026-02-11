@@ -14,6 +14,7 @@ No entries yet.
 ### Changed
 - README now includes the social star badge, "How It Compares" matrix, and an expanded roadmap section.
 - README roadmap now includes planned non-intrusive update notifications with `bridge doctor` status visibility.
+- README now includes a "Visibility Without Orchestration" section, a Claude->Codex handoff visual, and explicit current-boundary notes aligned with roadmap status.
 - crates.io keywords in `cli/Cargo.toml` now align with launch messaging (`agent-bridge`, `multi-agent`, `cross-agent`, `context-engineering`).
 - Setup intent text now points to the canonical `PROTOCOL.md` URL.
 

@@ -183,7 +183,7 @@ Recovery matrix:
 
 The default workflow is evidence-first: one agent reads another agent's session evidence and continues with a local decision, without a central control plane.
 
-![Claude to Codex handoff via read-only evidence](./docs/orchestrator-handoff-flow.svg)
+![Claude to Codex handoff via read-only evidence](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/orchestrator-handoff-flow.svg)
 
 ## Current Boundaries (v0.6.2)
 
