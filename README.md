@@ -38,15 +38,11 @@ Switch from Gemini to Claude mid-task. Claude picks up where Gemini left off.
 
 ![Handoff Demo](./docs/demo-handoff.webp)
 
-<details><summary>More Demos</summary>
-
 ### The Status Check
 
 Three agents working on checkout. You ask Codex what the others are doing.
 
 ![Status Check Demo](./docs/demo-status.webp)
-
-</details>
 
 ## Quick Start
 

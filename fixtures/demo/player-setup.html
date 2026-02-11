@@ -216,7 +216,7 @@
 
         async function runDemo() {
             const progressBar = document.getElementById('progress');
-            const totalDuration = 15000;
+            const totalDuration = 22000;
             const startTime = Date.now();
             const progressInterval = setInterval(() => {
                 const pct = Math.min(((Date.now() - startTime) / totalDuration) * 100, 100);
@@ -234,16 +234,16 @@
             line('codex', '');
             html('codex', '<span class="dim">Codex CLI &mdash; Agent Bridge</span>');
             line('codex', '');
-            await wait(1000);
+            await wait(1400);
 
             // === SCENE 1: Setup (1-4s) ===
             html('claude', '<span class="claude-prompt">~/myapp</span> <span class="dim">$</span> <span class="user-input">Set up agent bridge</span>');
             line('claude', '');
-            await wait(400);
+            await wait(700);
 
             toolCall('claude', 'bridge setup');
             line('claude', '');
-            await wait(600);
+            await wait(1100);
 
             html('claude', [
                 'Agent Bridge setup complete for ~/projects/myapp',
@@ -251,6 +251,7 @@
                 '- [created] .agent-bridge/providers/codex.md (Created provider snippet)',
                 '- [updated] AGENTS.md (Managed block written)',
                 '- [created] .agent-bridge/providers/claude.md (Created provider snippet)',
+                '- [updated] CLAUDE.md (Managed block written)',
                 '- [created] .agent-bridge/providers/gemini.md (Created provider snippet)',
                 '- [updated] GEMINI.md (Managed block written)',
             ].join('\n'));
@@ -258,47 +259,49 @@
             html('claude', '<span class="success bold">Setup scaffolding ready.</span>');
             line('claude', '');
 
-            await wait(800);
+            await wait(1300);
 
             // === SCENE 2: Doctor (4-7s) ===
             toolCall('claude', 'bridge doctor');
             line('claude', '');
-            await wait(600);
+            await wait(900);
 
             html('claude', [
+                'Agent Bridge doctor: WARN (~/projects/myapp)',
                 '<span class="success">PASS</span> setup_intents',
                 '<span class="success">PASS</span> snippet_codex',
                 '<span class="success">PASS</span> integration_codex',
                 '<span class="success">PASS</span> snippet_claude',
                 '<span class="success">PASS</span> integration_claude',
                 '<span class="success">PASS</span> integration_gemini',
+                '<span class="warning">WARN</span> sessions_gemini',
             ].join('\n'));
             line('claude', '');
-            html('claude', '<span class="success bold">All checks passed.</span>');
+            html('claude', '<span class="warning bold">Wiring is ready; run agent sessions to clear session warnings.</span>');
             line('claude', '');
 
-            await wait(800);
+            await wait(1400);
 
             // === SCENE 3: First query — no sessions (7-10s) ===
             html('codex', '<span class="codex-prompt">user</span> <span class="user-input">What is Gemini working on?</span>');
             line('codex', '');
-            await wait(300);
+            await wait(500);
 
             toolCall('codex', 'bridge read --agent gemini --json');
             line('codex', '');
-            await wait(500);
+            await wait(900);
 
             html('codex', '<span class="warning">No sessions found for Gemini in this project.</span>');
             html('codex', '<span class="dim">Gemini hasn\'t started a session yet.</span>');
             line('codex', '');
 
-            await wait(1000);
+            await wait(1500);
 
             // === SCENE 4: Gemini activates (10-13s) ===
             html('gemini', '<span class="gemini-prompt">user@myapp &#9656;</span> <span class="user-input">Scaffold the REST API</span>');
             line('gemini', '');
-            await wait(400);
-            await thinking('gemini', 800);
+            await wait(600);
+            await thinking('gemini', 1400);
             line('gemini', '');
             html('gemini', '<span class="gemini-prompt">&#10022;</span> Scaffolding API routes...');
             html('gemini', [
@@ -308,16 +311,16 @@
             ].join('\n'));
             line('gemini', '');
 
-            await wait(500);
+            await wait(900);
 
             // Ask again — now gets real answer
             html('codex', '<span class="codex-prompt">user</span> <span class="user-input">What is Gemini working on?</span>');
             line('codex', '');
-            await wait(300);
+            await wait(500);
 
             toolCall('codex', 'bridge read --agent gemini --json');
             line('codex', '');
-            await wait(600);
+            await wait(900);
 
             html('codex', [
                 '<span class="badge badge-green">Evidence-backed</span>',
@@ -329,7 +332,7 @@
             ].join('\n'));
             line('codex', '');
 
-            await wait(1500);
+            await wait(2000);
 
             clearInterval(progressInterval);
             progressBar.style.width = '100%';
