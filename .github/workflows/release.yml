@@ -33,7 +33,7 @@ jobs:
       - name: Verify version/tag consistency
         run: |
           TAG_NAME=""
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF_TYPE}" == "tag" ]]; then
             TAG_NAME="${GITHUB_REF_NAME}"
           fi
           bash scripts/release/verify_versions.sh "${TAG_NAME}"
