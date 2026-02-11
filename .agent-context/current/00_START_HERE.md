@@ -5,10 +5,10 @@ This context pack is the first-stop index for agent work in this repository.
 ## Snapshot
 - Repo: `agent-bridge`
 - Branch at generation: `main`
-- HEAD commit: `bcc6dbde521e5f84a7f93c39fe4c94d58146b275`
+- HEAD commit: `878dab7066ec71c0da8f21ce49fb106856645787`
 - Node package version: `0.6.1`
 - Rust crate version: `0.6.1`
-- Generated at: `2026-02-11T11:00:58.345Z`
+- Generated at: `2026-02-11T11:04:10.848Z`
 
 ## Read Order (Token-Efficient)
 1. Read this file.
@@ -25,8 +25,6 @@ This context pack is the first-stop index for agent work in this repository.
 
 ## Last Change Range Input
 - README.md
-- cli/Cargo.toml
-- scripts/read_session.cjs
 
 ## Scope Rule
 For "understand this repo end-to-end" requests:
