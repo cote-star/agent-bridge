@@ -5,10 +5,10 @@ This context pack is the first-stop index for agent work in this repository.
 ## Snapshot
 - Repo: `agent-bridge`
 - Branch at generation: `main`
-- HEAD commit: `26b5d6d2001b844e923a20cdf1bcb0ca55d76ad9`
-- Node package version: `0.5.4`
-- Rust crate version: `0.5.4`
-- Generated at: `2026-02-10T13:19:06.744Z`
+- HEAD commit: `4aff3972c257b324b48ec35cfdcef3830a6a71a8`
+- Node package version: `0.6.0`
+- Rust crate version: `0.6.0`
+- Generated at: `2026-02-11T08:50:05.846Z`
 
 ## Read Order (Token-Efficient)
 1. Read this file.
@@ -24,7 +24,7 @@ This context pack is the first-stop index for agent work in this repository.
 - Core risk: behavior drift between Node and Rust command/output contracts.
 
 ## Last Change Range Input
-- No explicit change range provided (manual build).
+- scripts/release/verify_versions.sh
 
 ## Scope Rule
 For "understand this repo end-to-end" requests:
