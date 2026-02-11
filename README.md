@@ -179,6 +179,19 @@ Recovery matrix:
 | **Language** | Node.js + Rust (conformance-tested) | Python or TypeScript | Single language |
 | **Philosophy** | Visibility first, orchestration optional | Orchestration first | Task spawning |
 
+## Visibility Without Orchestration
+
+The default workflow is evidence-first: one agent reads another agent's session evidence and continues with a local decision, without a central control plane.
+
+![Claude to Codex handoff via read-only evidence](./docs/orchestrator-handoff-flow.svg)
+
+## Current Boundaries (v0.6.2)
+
+- No orchestration control plane: no task router, scheduler, or work queues.
+- No autonomous agent chaining by default; handoffs are human-directed.
+- No live synchronization stream; reads are snapshot-based from local session logs.
+- Agent-to-agent messaging and cross-agent context sharing are roadmap items, not default behavior today.
+
 ## Architecture
 
 The bridge sits between your agent and other agents' session logs. You talk to your agent - your agent talks to the bridge.

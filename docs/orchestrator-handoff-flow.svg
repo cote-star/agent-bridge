@@ -1,0 +1,93 @@
+<svg viewBox="0 0 1080 1080" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="4" result="n"/>
+      <feColorMatrix in="n" type="saturate" values="0" result="gn"/>
+      <feBlend in="SourceGraphic" in2="gn" mode="multiply"/>
+    </filter>
+  </defs>
+
+  <rect width="1080" height="1080" fill="#FDFCF8" filter="url(#grain)"/>
+
+  <!-- Brand mark -->
+  <g transform="translate(72,60)">
+    <path d="M 4 14 A 12 12 0 1 1 20 14" stroke="#F37021" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <polygon points="20,14 24,10 22,18" fill="#F37021"/>
+  </g>
+
+  <!-- Title -->
+  <text x="540" y="115" font-family="DejaVu Sans, sans-serif" font-size="40" font-weight="700" fill="#1A1A1A" text-anchor="middle">The Handoff Moment</text>
+  <text x="540" y="155" font-family="DejaVu Sans, sans-serif" font-size="18" fill="#4A4A4A" text-anchor="middle">Codex reads Claude's session via bridge, detects the stall, continues the work</text>
+
+  <!-- Timeline flow (top to bottom) -->
+
+  <!-- Step 1: Claude working -->
+  <rect x="140" y="210" width="800" height="80" rx="8" fill="none" stroke="#1A1A1A" stroke-width="1.5"/>
+  <text x="180" y="240" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="700" fill="#1A1A1A">STEP 1</text>
+  <text x="180" y="260" font-family="DejaVu Sans, sans-serif" font-size="16" fill="#1A1A1A">Claude implementing across the codebase</text>
+  <text x="180" y="280" font-family="DejaVu Sans, sans-serif" font-size="12" fill="#4A4A4A">Modifying files, following spec, making steady progress...</text>
+  <!-- Status indicator -->
+  <circle cx="880" cy="250" r="8" fill="#2D8A4E"/>
+  <text x="865" y="275" font-family="DejaVu Sans, sans-serif" font-size="10" fill="#2D8A4E" text-anchor="middle">active</text>
+
+  <!-- Arrow down -->
+  <line x1="540" y1="290" x2="540" y2="330" stroke="#1A1A1A" stroke-width="1.2"/>
+  <polygon points="536,325 540,335 544,325" fill="#1A1A1A"/>
+
+  <!-- Step 2: Claude hits limit -->
+  <rect x="140" y="340" width="800" height="80" rx="8" fill="none" stroke="#D94F3B" stroke-width="2"/>
+  <text x="180" y="370" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="700" fill="#D94F3B">STEP 2</text>
+  <text x="180" y="390" font-family="DejaVu Sans, sans-serif" font-size="16" fill="#1A1A1A">Claude hits rate limit — session stalls</text>
+  <text x="180" y="410" font-family="DejaVu Sans, sans-serif" font-size="12" fill="#4A4A4A">No crash, no error. Just silence. The agent stops producing output.</text>
+  <!-- Status indicator -->
+  <circle cx="880" cy="380" r="8" fill="#D94F3B"/>
+  <text x="865" y="405" font-family="DejaVu Sans, sans-serif" font-size="10" fill="#D94F3B" text-anchor="middle">stalled</text>
+
+  <!-- Arrow down -->
+  <line x1="540" y1="420" x2="540" y2="460" stroke="#1A1A1A" stroke-width="1.2"/>
+  <polygon points="536,455 540,465 544,455" fill="#1A1A1A"/>
+
+  <!-- Step 3: User tells Codex to monitor -->
+  <rect x="140" y="470" width="800" height="80" rx="8" fill="none" stroke="#1A1A1A" stroke-width="1.5"/>
+  <text x="180" y="500" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="700" fill="#1A1A1A">STEP 3</text>
+  <text x="180" y="520" font-family="DejaVu Sans, sans-serif" font-size="16" fill="#1A1A1A">User → Codex: "Monitor Claude. If it stops, pick up where it left off."</text>
+  <text x="180" y="540" font-family="DejaVu Sans, sans-serif" font-size="12" fill="#4A4A4A">One instruction. No script. No runbook. No shared task queue.</text>
+
+  <!-- Arrow down -->
+  <line x1="540" y1="550" x2="540" y2="590" stroke="#F37021" stroke-width="1.5"/>
+  <polygon points="536,585 540,595 544,585" fill="#F37021"/>
+
+  <!-- Step 4: Codex reads via bridge (ACCENT) -->
+  <rect x="140" y="600" width="800" height="100" rx="8" fill="#FEF0E5" stroke="#F37021" stroke-width="2.5"/>
+  <text x="180" y="630" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="700" fill="#F37021">STEP 4</text>
+  <text x="180" y="655" font-family="DejaVu Sans, sans-serif" font-size="16" fill="#1A1A1A">Codex reads Claude's session via bridge</text>
+  <!-- CLI command -->
+  <rect x="200" y="668" width="360" height="24" rx="4" fill="#1A1A1A"/>
+  <text x="210" y="685" font-family="monospace" font-size="12" fill="#F37021">bridge read --agent claude --json</text>
+  <!-- What Codex sees -->
+  <text x="590" y="670" font-family="DejaVu Sans, sans-serif" font-size="11" fill="#4A4A4A">→ Sees what was completed</text>
+  <text x="590" y="688" font-family="DejaVu Sans, sans-serif" font-size="11" fill="#4A4A4A">→ Sees what was left unfinished</text>
+
+  <!-- Arrow down -->
+  <line x1="540" y1="700" x2="540" y2="740" stroke="#F37021" stroke-width="1.5"/>
+  <polygon points="536,735 540,745 544,735" fill="#F37021"/>
+
+  <!-- Step 5: Codex continues -->
+  <rect x="140" y="750" width="800" height="80" rx="8" fill="none" stroke="#2D8A4E" stroke-width="2"/>
+  <text x="180" y="780" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="700" fill="#2D8A4E">STEP 5</text>
+  <text x="180" y="800" font-family="DejaVu Sans, sans-serif" font-size="16" fill="#1A1A1A">Codex continues implementation from the exact stall point</text>
+  <text x="180" y="820" font-family="DejaVu Sans, sans-serif" font-size="12" fill="#4A4A4A">No orchestrator. No message bus. Just read access to evidence.</text>
+  <!-- Status indicator -->
+  <circle cx="880" cy="790" r="8" fill="#2D8A4E"/>
+  <text x="865" y="815" font-family="DejaVu Sans, sans-serif" font-size="10" fill="#2D8A4E" text-anchor="middle">resumed</text>
+
+  <!-- Bottom annotation -->
+  <text x="540" y="880" font-family="DejaVu Sans, sans-serif" font-size="14" fill="#4A4A4A" text-anchor="middle" font-style="italic">The coordination wasn't designed. It was a side effect of visibility.</text>
+
+  <!-- Separator -->
+  <line x1="72" y1="940" x2="1008" y2="940" stroke="#F37021" stroke-width="1"/>
+
+  <!-- Footer -->
+  <text x="64" y="1026" font-family="DejaVu Sans, sans-serif" font-size="16" fill="#4A4A4A">Amit Prusty</text>
+  <text x="680" y="1026" font-family="DejaVu Sans, sans-serif" font-size="12" fill="#4A4A4A">Confessions of a Thoughtful Engineer</text>
+</svg>
