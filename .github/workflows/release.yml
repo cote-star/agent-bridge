@@ -90,7 +90,22 @@ jobs:
           export OWNER
           node -e "const fs=require('fs'); const pkg=require('./package.json'); const base=pkg.name.includes('/') ? pkg.name.split('/').pop() : pkg.name; pkg.name='@'+process.env.OWNER+'/'+base; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2)+'\n');"
 
+      - name: Check GitHub Packages version availability
+        id: gh_package_check
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: |
+          PKG_NAME="$(node -p "require('./package.json').name")"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if npm view "${PKG_NAME}@${PKG_VERSION}" version --registry https://npm.pkg.github.com >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "GitHub Packages already has ${PKG_NAME}@${PKG_VERSION}; skipping publish."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish to GitHub Packages
+        if: ${{ steps.gh_package_check.outputs.exists != 'true' }}
         env:
           NODE_AUTH_TOKEN: ${{ github.token }}
         run: npm publish --registry https://npm.pkg.github.com
