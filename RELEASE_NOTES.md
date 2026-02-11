@@ -1,5 +1,20 @@
 # Release Notes
 
+## Unreleased
+
+### Highlights
+- Tightens repo positioning around evidence-first multi-agent workflows and cold-start reduction.
+- Expands docs coverage for context-pack operations and practical CLI usage recipes.
+- Adds GitHub Packages publish path in release workflow while preserving npm/crates publication.
+
+### Changed
+- README now includes a concise "Why It Exists" framing (`Silo Tax`, `Cold-Start Tax`, visibility-first layering).
+- Context Pack section in README now includes a read-order hero image and an at-a-glance summary of operational behavior.
+- `CONTEXT_PACK.md` now documents the layered model, operational guarantees, and explicit non-goals.
+- `docs/CLI_REFERENCE.md` now includes common end-to-end recipes (handoff recovery, verification, cold-start onboarding).
+- npm metadata keywords were expanded for discoverability (`cold-start`, `orchestration`, `evidence-based`, `context-engineering`).
+- Release workflow now includes a GitHub Packages publish job and manual dispatch support.
+
 ## v0.5.4 (2026-02-10)
 
 ### Highlights

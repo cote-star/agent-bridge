@@ -15,7 +15,11 @@
     "cross-agent",
     "local-first",
     "context-pack",
-    "multi-agent"
+    "multi-agent",
+    "cold-start",
+    "orchestration",
+    "evidence-based",
+    "context-engineering"
   ],
   "private": false,
   "preferGlobal": true,

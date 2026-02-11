@@ -12,6 +12,12 @@ Ask one agent what another is doing, and get an evidence-backed answer. No copy-
 bridge read --agent claude --json
 ```
 
+## Why It Exists
+
+- **Silo Tax**: multi-agent workflows break when agents cannot verify each other's work.
+- **Cold-Start Tax**: every new session re-reads the same repo from zero.
+- **Visibility-first architecture**: give agents evidence + context first; add orchestration only when needed.
+
 ## How It Works
 
 1. **Ask naturally** - "What is Claude doing?" / "Did Gemini finish the API?"
@@ -93,6 +99,13 @@ A context pack is an agent-first, token-efficient repo briefing for end-to-end u
 Instead of re-reading the full repository on every request, agents start from `.agent-context/current/` and open project files only when needed.
 This works the same for private repositories: the pack is local-first and does not require making your code public.
 
+At a glance:
+
+- `5` ordered docs + `manifest.json` (compact index, not a repo rewrite).
+- Deterministic read order: `00` -> `10` -> `20` -> `30` -> `40`.
+- Main-only smart sync: updates only when context-relevant files change.
+- Local recovery snapshots with rollback support.
+
 ### Recommended Workflow
 
 ```bash
@@ -114,6 +127,8 @@ Ask your agent explicitly:
 
 Create and wire a context pack for token-efficient repo understanding:
 
+![Context Pack Read-Order](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/cold-start-context-pack-hero.webp)
+
 ![Context Pack Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-context-pack.webp)
 
 ### Main Push Sync Policy
@@ -133,6 +148,12 @@ bridge context-pack check-freshness --base origin/main
 - Do not treat context pack as a substitute for source-of-truth when changing behavior-critical code.
 - Do not expect automatic updates from commits alone or non-`main` branch pushes.
 - Do not put secrets in context-pack content; `.agent-context/current/` is tracked in git.
+
+### Layered Model
+
+- **Layer 0 (Evidence)**: cross-agent session reads with citations.
+- **Layer 1 (Context)**: context-pack index for deterministic repo onboarding.
+- **Layer 2 (Coordination, optional)**: explicit orchestration only when layers 0-1 are insufficient.
 
 Recovery matrix:
 

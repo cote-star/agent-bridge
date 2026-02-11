@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 jobs:
   verify:
@@ -30,7 +31,12 @@ jobs:
         run: bash scripts/validate_schemas.sh
 
       - name: Verify version/tag consistency
-        run: bash scripts/release/verify_versions.sh "${GITHUB_REF_NAME}"
+        run: |
+          TAG_NAME=""
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            TAG_NAME="${GITHUB_REF_NAME}"
+          fi
+          bash scripts/release/verify_versions.sh "${TAG_NAME}"
 
   package-node:
     needs: verify
@@ -55,10 +61,39 @@ jobs:
           path: '*.tgz'
 
       - name: Publish to npm
-        if: ${{ secrets.NPM_TOKEN != '' }}
+        if: ${{ github.event_name == 'push' && github.ref_type == 'tag' && secrets.NPM_TOKEN != '' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public
+
+  publish-github-package:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js for GitHub Packages
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://npm.pkg.github.com'
+
+      - name: Prepare scoped package name
+        env:
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          OWNER="$(echo "$REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
+          export OWNER
+          node -e "const fs=require('fs'); const pkg=require('./package.json'); const base=pkg.name.includes('/') ? pkg.name.split('/').pop() : pkg.name; pkg.name='@'+process.env.OWNER+'/'+base; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2)+'\n');"
+
+      - name: Publish to GitHub Packages
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: npm publish --registry https://npm.pkg.github.com
 
   package-rust:
     needs: verify
@@ -99,7 +134,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Publish crate to crates.io
-        if: ${{ secrets.CARGO_REGISTRY_TOKEN != '' }}
+        if: ${{ github.event_name == 'push' && github.ref_type == 'tag' && secrets.CARGO_REGISTRY_TOKEN != '' }}
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: cargo publish --manifest-path cli/Cargo.toml
