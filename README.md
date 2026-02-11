@@ -218,6 +218,7 @@ sequenceDiagram
 - **Context Pack customization** - user-defined doc structure, custom sections, team templates.
 - **Windows installation** - native Windows support (currently macOS/Linux).
 - **Auto-generated instruction wiring** - `bridge setup` creates/updates `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`, plus `.agent-bridge/INTENTS.md` and provider snippets.
+- **Non-intrusive update notifications** - once-per-version update hints with fail-silent behavior and structured status in `bridge doctor` (`BRIDGE_SKIP_UPDATE_CHECK=1` opt-out).
 - **Cross-agent context sharing** - agents share context snippets (still read-only, still local).
 - **Agent-to-agent messaging** - agents leave messages for each other via bridge.
 
