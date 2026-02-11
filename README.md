@@ -36,7 +36,7 @@ bridge read --agent claude --json
 
 Three agents working on checkout. You ask Codex what the others are doing.
 
-![Status Check Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-status.webp)
+![Status Check Demo](./docs/demo-status.webp)
 
 <details><summary>More Demos</summary>
 
@@ -44,13 +44,13 @@ Three agents working on checkout. You ask Codex what the others are doing.
 
 Switch from Gemini to Claude mid-task. Claude picks up where Gemini left off.
 
-![Handoff Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-handoff.webp)
+![Handoff Demo](./docs/demo-handoff.webp)
 
 ### Quick Setup
 
 From zero to a working skill query in under a minute.
 
-![Setup Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-setup.webp)
+![Setup Demo](./docs/demo-setup.webp)
 
 </details>
 
@@ -127,9 +127,9 @@ Ask your agent explicitly:
 
 Create and wire a context pack for token-efficient repo understanding:
 
-![Context Pack Read-Order](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/cold-start-context-pack-hero.webp)
+![Context Pack Read-Order](./docs/cold-start-context-pack-hero.webp)
 
-![Context Pack Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-context-pack.webp)
+![Context Pack Demo](./docs/demo-context-pack.webp)
 
 ### Main Push Sync Policy
 
@@ -203,7 +203,7 @@ sequenceDiagram
 
 `bridge trash-talk` roasts your agents based on their session content.
 
-![Trash Talk Demo](https://raw.githubusercontent.com/cote-star/agent-bridge/main/docs/demo-trash-talk.webp)
+![Trash Talk Demo](./docs/demo-trash-talk.webp)
 
 ## Choose Your Path
 

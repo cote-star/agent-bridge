@@ -212,10 +212,13 @@
             line('claude', '');
             await wait(650);
             html('claude', [
-                '<span class="success">PASS</span> setup_intents',
-                '<span class="success">PASS</span> snippet_claude',
-                '<span class="success">PASS</span> context_pack_build',
-                '<span class="success">PASS</span> context_pack_hooks',
+                'Agent Bridge setup complete for ~/projects/bridge',
+                '- [created] .agent-bridge/INTENTS.md (Created intent contract)',
+                '- [updated] AGENTS.md (Managed block written)',
+                '- [updated] .agent-context/current ([context-pack] updated: .agent-context (snapshot 20260210T114200Z_abc123))',
+                '- [updated] .githooks/pre-push ([context-pack] updated: .githooks/pre-push)',
+                '[context-pack] git hooks path set to .githooks',
+                '[context-pack] pre-push hook is active',
             ].join('\n'));
             line('claude', '');
             html('claude', '<span class="success bold">Context pack ready.</span>');

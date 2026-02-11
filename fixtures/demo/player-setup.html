@@ -241,21 +241,21 @@
             line('claude', '');
             await wait(400);
 
-            toolCall('claude', 'bridge setup --json');
+            toolCall('claude', 'bridge setup');
             line('claude', '');
             await wait(600);
 
             html('claude', [
-                '<span class="success">&#10003;</span> Created .agent-bridge/INTENTS.md',
-                '<span class="success">&#10003;</span> Created .agent-bridge/providers/codex.md',
-                '<span class="success">&#10003;</span> Created .agent-bridge/providers/claude.md',
-                '<span class="success">&#10003;</span> Created .agent-bridge/providers/gemini.md',
-                '<span class="success">&#10003;</span> Updated AGENTS.md',
-                '<span class="success">&#10003;</span> Updated CLAUDE.md',
-                '<span class="success">&#10003;</span> Updated GEMINI.md',
+                'Agent Bridge setup complete for ~/projects/myapp',
+                '- [created] .agent-bridge/INTENTS.md (Created intent contract)',
+                '- [created] .agent-bridge/providers/codex.md (Created provider snippet)',
+                '- [updated] AGENTS.md (Managed block written)',
+                '- [created] .agent-bridge/providers/claude.md (Created provider snippet)',
+                '- [created] .agent-bridge/providers/gemini.md (Created provider snippet)',
+                '- [updated] GEMINI.md (Managed block written)',
             ].join('\n'));
             line('claude', '');
-            html('claude', '<span class="success bold">7 files created/updated.</span>');
+            html('claude', '<span class="success bold">Setup scaffolding ready.</span>');
             line('claude', '');
 
             await wait(800);
@@ -268,6 +268,7 @@
             html('claude', [
                 '<span class="success">PASS</span> setup_intents',
                 '<span class="success">PASS</span> snippet_codex',
+                '<span class="success">PASS</span> integration_codex',
                 '<span class="success">PASS</span> snippet_claude',
                 '<span class="success">PASS</span> integration_claude',
                 '<span class="success">PASS</span> integration_gemini',
