@@ -4,7 +4,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
-TAG="${1:-${GITHUB_REF_NAME:-}}"
+TAG="${1:-}"
+if [[ -z "$TAG" && "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+  TAG="${GITHUB_REF_NAME:-}"
+fi
 NODE_VERSION="$(node -p "require('./package.json').version")"
 RUST_VERSION="$(sed -n 's/^version = "\([^"]*\)"/\1/p' cli/Cargo.toml | head -n1)"
 
