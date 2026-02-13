@@ -108,6 +108,8 @@ function printHelp(topic = null) {
     lines.push('');
     lines.push('context-pack usage:');
     lines.push('  context-pack build [--reason <text>] [--base <sha>] [--head <sha>] [--force-snapshot]');
+    lines.push('  context-pack init [--pack-dir <path>] [--cwd <path>] [--force]');
+    lines.push('  context-pack seal [--reason <text>] [--base <sha>] [--head <sha>] [--pack-dir <path>] [--cwd <path>] [--force] [--force-snapshot]');
     lines.push('  context-pack sync-main --local-ref <ref> --local-sha <sha> --remote-ref <ref> --remote-sha <sha>');
     lines.push('  context-pack install-hooks');
     lines.push('  context-pack rollback [--snapshot <id>]');
@@ -221,6 +223,8 @@ function runInternalNodeScript(scriptRelPath, scriptArgs, options = {}) {
 function runContextPackSubcommand(subcommand, subArgs, options = {}) {
   const scriptBySubcommand = {
     build: 'context_pack/build.cjs',
+    init: 'context_pack/init.cjs',
+    seal: 'context_pack/seal.cjs',
     'sync-main': 'context_pack/sync_main.cjs',
     rollback: 'context_pack/rollback.cjs',
     'install-hooks': 'context_pack/install_hooks.cjs',

@@ -216,6 +216,52 @@ enum ContextPackCommand {
         #[arg(long)]
         cwd: Option<String>,
     },
+
+    /// Initialize context pack templates
+    Init {
+        /// Override pack directory (default: .agent-context or BRIDGE_CONTEXT_PACK_DIR)
+        #[arg(long)]
+        pack_dir: Option<String>,
+
+        /// Working directory (default: current directory)
+        #[arg(long)]
+        cwd: Option<String>,
+
+        /// Overwrite existing template files
+        #[arg(long)]
+        force: bool,
+    },
+
+    /// Validate and seal an agent-authored context pack
+    Seal {
+        /// Seal reason (metadata only)
+        #[arg(long)]
+        reason: Option<String>,
+
+        /// Base SHA for changed-file computation
+        #[arg(long)]
+        base: Option<String>,
+
+        /// Head SHA for changed-file computation
+        #[arg(long)]
+        head: Option<String>,
+
+        /// Override pack directory (default: .agent-context or BRIDGE_CONTEXT_PACK_DIR)
+        #[arg(long)]
+        pack_dir: Option<String>,
+
+        /// Working directory (default: current directory)
+        #[arg(long)]
+        cwd: Option<String>,
+
+        /// Seal even if template markers remain
+        #[arg(long)]
+        force: bool,
+
+        /// Force creating a new snapshot even when unchanged
+        #[arg(long)]
+        force_snapshot: bool,
+    },
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
@@ -450,6 +496,36 @@ fn run(cli: Cli) -> Result<()> {
                         base.as_deref().unwrap_or("origin/main"),
                         &target_cwd,
                     )?;
+                }
+                ContextPackCommand::Init {
+                    pack_dir,
+                    cwd,
+                    force,
+                } => {
+                    context_pack::init(context_pack::InitOptions {
+                        pack_dir,
+                        cwd,
+                        force,
+                    })?;
+                }
+                ContextPackCommand::Seal {
+                    reason,
+                    base,
+                    head,
+                    pack_dir,
+                    cwd,
+                    force,
+                    force_snapshot,
+                } => {
+                    context_pack::seal(context_pack::SealOptions {
+                        reason,
+                        base,
+                        head,
+                        pack_dir,
+                        cwd,
+                        force,
+                        force_snapshot,
+                    })?;
                 }
             }
         }
