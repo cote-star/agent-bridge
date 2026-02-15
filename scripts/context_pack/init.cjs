@@ -36,27 +36,7 @@ function parseArgs(argv) {
   return opts;
 }
 
-function runGit(args, cwd, allowFailure = false) {
-  try {
-    return execFileSync('git', args, {
-      cwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }).trim();
-  } catch (error) {
-    if (allowFailure) return '';
-    throw error;
-  }
-}
-
-function ensureDir(dirPath) {
-  fs.mkdirSync(dirPath, { recursive: true });
-}
-
-function writeText(filePath, text) {
-  ensureDir(path.dirname(filePath));
-  fs.writeFileSync(filePath, text, 'utf8');
-}
+const { runGit, ensureDir, safeWriteText } = require('./cp_utils.cjs');
 
 function isNonEmptyDir(dirPath) {
   if (!fs.existsSync(dirPath)) return false;
@@ -243,15 +223,15 @@ function main() {
   ];
 
   for (const [filename, content] of outputs) {
-    writeText(path.join(currentDir, filename), content);
+    safeWriteText(path.join(currentDir, filename), content);
   }
 
   if (!fs.existsSync(relevancePath) || opts.force) {
-    writeText(relevancePath, defaultRelevanceJson());
+    safeWriteText(relevancePath, defaultRelevanceJson());
   }
 
   if (!fs.existsSync(guidePath) || opts.force) {
-    writeText(guidePath, guideContent());
+    safeWriteText(guidePath, guideContent());
   }
 
   console.log(

@@ -1,8 +1,12 @@
 mod adapters;
 mod agents;
 mod context_pack;
+#[cfg(feature = "relevance")]
+pub mod relevance;
 mod report;
 mod utils;
+pub mod update_check;
+
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
@@ -135,6 +139,10 @@ enum Commands {
         #[command(subcommand)]
         command: ContextPackCommand,
     },
+
+    #[cfg(feature = "update-check")]
+    #[command(hide = true)]
+    UpdateWorker,
 }
 
 #[derive(Subcommand)]
@@ -336,6 +344,8 @@ fn is_json_mode(command: &Commands) -> bool {
         Commands::Search { json, .. } => *json,
         Commands::TrashTalk { .. } => false,
         Commands::ContextPack { .. } => false,
+        #[cfg(feature = "update-check")]
+        Commands::UpdateWorker => false,
     }
 }
 
@@ -529,7 +539,14 @@ fn run(cli: Cli) -> Result<()> {
                 }
             }
         }
+        #[cfg(feature = "update-check")]
+        Commands::UpdateWorker => {
+            update_check::run_worker();
+        }
     }
+
+    #[cfg(feature = "update-check")]
+    update_check::maybe_notify(&cli.command);
 
     Ok(())
 }

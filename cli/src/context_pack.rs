@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context, Result};
+use globset::{Glob, GlobSet, GlobSetBuilder};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
@@ -12,24 +13,25 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const ZERO_SHA: &str = "0000000000000000000000000000000000000000";
+const MAX_CHANGED_FILES_DISPLAYED: usize = 12;
 
 pub struct BuildOptions {
     pub reason: Option<String>,
     pub base: Option<String>,
     pub head: Option<String>,
     pub pack_dir: Option<String>,
+    /// Reserved: will be used when `build` constructs the start-here template with change summaries.
+    #[allow(dead_code)]
     pub changed_files: Vec<String>,
     pub force_snapshot: bool,
 }
 
-#[allow(dead_code)]
 pub struct InitOptions {
     pub pack_dir: Option<String>,
     pub cwd: Option<String>,
     pub force: bool,
 }
 
-#[allow(dead_code)]
 pub struct SealOptions {
     pub reason: Option<String>,
     pub base: Option<String>,
@@ -346,28 +348,24 @@ pub fn sync_main(
     }
 
     let changed_files = compute_changed_files(&repo_root, Some(remote_sha), local_sha)?;
-    let relevant = changed_files
+    let rules = load_relevance_rules(&repo_root);
+    let relevant: Vec<&String> = changed_files
         .iter()
-        .filter(|path| is_context_relevant(path))
-        .collect::<Vec<_>>();
+        .filter(|path| is_context_relevant_with_rules(path, &rules))
+        .collect();
 
     if relevant.is_empty() {
         println!("[context-pack] skipped (no context-relevant file changes)");
         return Ok(());
     }
 
-    build(BuildOptions {
-        reason: Some(format!(
-            "main-push:{}..{}",
-            short_sha(Some(remote_sha)),
-            short_sha(Some(local_sha))
-        )),
-        base: Some(remote_sha.to_string()),
-        head: Some(local_sha.to_string()),
-        pack_dir: None,
-        changed_files,
-        force_snapshot: false,
-    })
+    // Advisory-only: warn but never block the push or auto-build
+    eprintln!(
+        "[context-pack] ADVISORY: context-relevant files changed on main push. \
+         Update pack content with your agent, then run 'bridge context-pack seal'."
+    );
+
+    Ok(())
 }
 
 pub fn rollback(snapshot: Option<&str>, pack_dir: Option<&str>) -> Result<()> {
@@ -593,12 +591,18 @@ fn write_text_atomic(path: &Path, text: &str) -> Result<()> {
     Ok(())
 }
 
+/// Reserved: content generator for auto-fill build mode.
+/// Will be wired when `build --auto-fill` is implemented.
+#[allow(dead_code)]
 fn read_package_version(path: &Path) -> Option<String> {
     let raw = fs::read_to_string(path).ok()?;
     let value: Value = serde_json::from_str(&raw).ok()?;
     value.get("version").and_then(|v| v.as_str()).map(|v| v.to_string())
 }
 
+/// Reserved: content generator for auto-fill build mode.
+/// Will be wired when `build --auto-fill` is implemented.
+#[allow(dead_code)]
 fn parse_cargo_version(raw: &str) -> Option<String> {
     for line in raw.lines() {
         let trimmed = line.trim();
@@ -634,6 +638,9 @@ fn compute_changed_files(repo_root: &Path, base: Option<&str>, head: &str) -> Re
         .collect())
 }
 
+/// Reserved: content generator for auto-fill build mode.
+/// Will be wired when `build --auto-fill` is implemented.
+#[allow(dead_code)]
 fn normalize_changed_files(files: &[String]) -> Vec<String> {
     let mut set = BTreeSet::new();
     for file in files {
@@ -645,6 +652,9 @@ fn normalize_changed_files(files: &[String]) -> Vec<String> {
     set.into_iter().collect()
 }
 
+/// Reserved: content generator for auto-fill build mode.
+/// Will be wired when `build --auto-fill` is implemented.
+#[allow(dead_code)]
 fn summarize_path_counts(paths: &[String]) -> Vec<(String, usize)> {
     let mut buckets = vec![
         ("scripts/".to_string(), "scripts".to_string(), 0usize),
@@ -689,6 +699,7 @@ fn collect_files_meta(current_dir: &Path, relative_paths: &[String]) -> Result<V
     Ok(out)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_manifest(
     generated_at: &str,
     repo_root: &Path,
@@ -830,6 +841,10 @@ struct FileLock {
 }
 
 fn acquire_lock(path: &Path) -> Result<FileLock> {
+    acquire_lock_internal(path, true)
+}
+
+fn acquire_lock_internal(path: &Path, allow_recovery: bool) -> Result<FileLock> {
     match fs::OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -842,6 +857,29 @@ fn acquire_lock(path: &Path) -> Result<FileLock> {
             Ok(FileLock {
                 path: path.to_path_buf(),
             })
+        }
+        Err(error) if allow_recovery && error.kind() == std::io::ErrorKind::AlreadyExists => {
+            if let Ok(content) = fs::read_to_string(path) {
+                if let Ok(pid) = content.trim().parse::<u32>() {
+                    let is_running = Command::new("kill")
+                        .arg("-0")
+                        .arg(pid.to_string())
+                        .status()
+                        .map(|s| s.success())
+                        .unwrap_or(false);
+
+                    if !is_running {
+                        eprintln!("[context-pack] WARNING: cleaned stale lock (pid {} no longer running)", pid);
+                        let _ = fs::remove_file(path);
+                        return acquire_lock_internal(path, false);
+                    }
+                }
+            }
+            Err(anyhow!(
+                "[context-pack] another seal is in progress (lock: {}): {}",
+                path.display(),
+                error
+            ))
         }
         Err(error) => Err(anyhow!(
             "[context-pack] another seal is in progress (lock: {}): {}",
@@ -876,7 +914,7 @@ fn short_sha(sha: Option<&str>) -> String {
 }
 
 fn compact_timestamp(iso: &str) -> String {
-    let mut compact = iso.replace('-', "").replace(':', "");
+    let mut compact = iso.replace(['-', ':'], "");
     if let Some(dot_idx) = compact.find('.') {
         if let Some(z_rel) = compact[dot_idx..].find('Z') {
             let end = dot_idx + z_rel + 1;
@@ -887,23 +925,31 @@ fn compact_timestamp(iso: &str) -> String {
 }
 
 fn now_stamp() -> String {
-    if let Ok(output) = Command::new("date")
-        .args(["-u", "+%Y-%m-%dT%H:%M:%SZ"])
-        .output()
-    {
-        if output.status.success() {
-            let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !value.is_empty() {
-                return value;
-            }
-        }
-    }
-
-    let unix = SystemTime::now()
+    let duration = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_secs())
-        .unwrap_or(0);
-    format!("unix-{unix}Z")
+        .unwrap_or_default();
+    let secs = duration.as_secs();
+
+    // Days since epoch calculation
+    let days = secs / 86400;
+    let time_of_day = secs % 86400;
+    let hours = time_of_day / 3600;
+    let minutes = (time_of_day % 3600) / 60;
+    let seconds = time_of_day % 60;
+
+    // Civil date from days since epoch (algorithm from Howard Hinnant)
+    let z = days as i64 + 719468;
+    let era = if z >= 0 { z } else { z - 146096 } / 146097;
+    let doe = (z - era * 146097) as u64;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let y = yoe as i64 + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+
+    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", y, m, d, hours, minutes, seconds)
 }
 
 fn is_main_push(local_ref: &str, remote_ref: &str) -> bool {
@@ -948,6 +994,64 @@ fn is_context_relevant(file_path: &str) -> bool {
         || normalized.starts_with(".github/workflows/")
 }
 
+/// Load relevance rules from `.agent-context/relevance.json` if it exists.
+/// Returns None if the file is missing or contains invalid JSON.
+/// Expected format: { "include": ["pattern", ...], "exclude": ["pattern", ...] }
+fn load_relevance_rules(repo_root: &Path) -> Option<Value> {
+    let rules_path = repo_root.join(".agent-context").join("relevance.json");
+    let raw = fs::read_to_string(&rules_path).ok()?;
+    let rules: Value = serde_json::from_str(&raw).ok()?;
+    if rules.is_object()
+        && (rules.get("include").and_then(|v| v.as_array()).is_some()
+            || rules.get("exclude").and_then(|v| v.as_array()).is_some())
+    {
+        Some(rules)
+    } else {
+        None
+    }
+}
+
+fn build_glob_set(patterns: &[&str]) -> Option<GlobSet> {
+    let mut builder = GlobSetBuilder::new();
+    for pattern in patterns {
+        if let Ok(glob) = Glob::new(pattern) {
+            builder.add(glob);
+        }
+    }
+    builder.build().ok()
+}
+
+/// Determine if a file is context-relevant using loaded rules or hardcoded defaults.
+fn is_context_relevant_with_rules(file_path: &str, rules: &Option<Value>) -> bool {
+    let normalized = file_path.replace('\\', "/");
+
+    if let Some(rules) = rules {
+        if let Some(excludes_array) = rules.get("exclude").and_then(|v| v.as_array()) {
+            let patterns: Vec<&str> = excludes_array.iter().filter_map(|v| v.as_str()).collect();
+            if let Some(glob_set) = build_glob_set(&patterns) {
+                if glob_set.is_match(&normalized) {
+                    return false;
+                }
+            }
+        }
+        if let Some(includes_array) = rules.get("include").and_then(|v| v.as_array()) {
+            let patterns: Vec<&str> = includes_array.iter().filter_map(|v| v.as_str()).collect();
+            if let Some(glob_set) = build_glob_set(&patterns) {
+                if glob_set.is_match(&normalized) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // Fall back to hardcoded defaults
+    is_context_relevant(file_path)
+}
+
+/// Reserved: content generator for auto-fill build mode.
+/// Will be wired when `build --auto-fill` is implemented.
+#[allow(dead_code)]
 fn build_start_here(
     repo_name: &str,
     branch: &str,
@@ -962,7 +1066,7 @@ fn build_start_here(
     } else {
         changed_files
             .iter()
-            .take(12)
+            .take(MAX_CHANGED_FILES_DISPLAYED)
             .map(|path| format!("- {}", path))
             .collect::<Vec<_>>()
             .join("\n")
@@ -973,6 +1077,9 @@ fn build_start_here(
     )
 }
 
+/// Reserved: content generator for auto-fill build mode.
+/// Will be wired when `build --auto-fill` is implemented.
+#[allow(dead_code)]
 fn build_system_overview(
     package_version: &str,
     cargo_version: &str,
@@ -1012,6 +1119,9 @@ fn build_system_overview(
     )
 }
 
+/// Reserved: content generator for auto-fill build mode.
+/// Will be wired when `build --auto-fill` is implemented.
+#[allow(dead_code)]
 fn build_code_map() -> String {
     r#"# Code Map
 
@@ -1041,6 +1151,9 @@ fn build_code_map() -> String {
     .to_string()
 }
 
+/// Reserved: content generator for auto-fill build mode.
+/// Will be wired when `build --auto-fill` is implemented.
+#[allow(dead_code)]
 fn build_invariants() -> String {
     r#"# Behavioral Invariants
 
@@ -1069,6 +1182,9 @@ These constraints are contract-level and must be preserved unless intentionally 
     .to_string()
 }
 
+/// Reserved: content generator for auto-fill build mode.
+/// Will be wired when `build --auto-fill` is implemented.
+#[allow(dead_code)]
 fn build_operations() -> String {
     r#"# Operations And Release
 

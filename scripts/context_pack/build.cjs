@@ -34,20 +34,33 @@ function main() {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     }).stdout?.trim() || cwd;
+  const packDirIdx = opts.passthrough.findIndex((t) => t === '--pack-dir');
   const packDir =
-    opts.passthrough.find((t, idx) => t === '--pack-dir' && opts.passthrough[idx + 1]) ||
+    (packDirIdx !== -1 && opts.passthrough[packDirIdx + 1]
+      ? opts.passthrough[packDirIdx + 1]
+      : null) ||
     process.env.BRIDGE_CONTEXT_PACK_DIR ||
     '.agent-context';
-  const currentDir = path.join(path.isAbsolute(packDir) ? packDir : path.join(repoRoot, packDir), 'current');
+
+  const cwdIdx = opts.passthrough.findIndex((t) => t === '--cwd');
+  const executionCwd =
+    cwdIdx !== -1 && opts.passthrough[cwdIdx + 1]
+      ? path.resolve(opts.passthrough[cwdIdx + 1])
+      : repoRoot;
+
+  const currentDir = path.join(
+    path.isAbsolute(packDir) ? packDir : path.join(executionCwd, packDir),
+    'current'
+  );
 
   const stateIsMissing =
     !fs.existsSync(currentDir) ||
     (fs.existsSync(currentDir) && fs.readdirSync(currentDir).length === 0);
 
   if (stateIsMissing) {
-    runSubcommand(path.join(__dirname, 'init.cjs'), opts.passthrough, repoRoot);
+    runSubcommand(path.join(__dirname, 'init.cjs'), opts.passthrough, executionCwd);
   } else {
-    runSubcommand(path.join(__dirname, 'seal.cjs'), opts.passthrough, repoRoot);
+    runSubcommand(path.join(__dirname, 'seal.cjs'), opts.passthrough, executionCwd);
   }
 }
 

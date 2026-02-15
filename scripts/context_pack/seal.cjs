@@ -64,22 +64,12 @@ function parseArgs(argv) {
   return opts;
 }
 
-function runGit(args, cwd, allowFailure = false) {
-  try {
-    return execFileSync('git', args, {
-      cwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }).trim();
-  } catch (error) {
-    if (allowFailure) return '';
-    throw error;
-  }
-}
-
-function ensureDir(dirPath) {
-  fs.mkdirSync(dirPath, { recursive: true });
-}
+const {
+  runGit,
+  ensureDir,
+  isProcessRunning,
+  safeWriteTextAtomic,
+} = require('./cp_utils.cjs');
 
 function sha256(input) {
   return crypto.createHash('sha256').update(input).digest('hex');
@@ -90,12 +80,13 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
-function writeTextAtomic(filePath, text) {
-  const dir = path.dirname(filePath);
-  ensureDir(dir);
-  const tmp = path.join(dir, `.tmp-${path.basename(filePath)}`);
-  fs.writeFileSync(tmp, text, 'utf8');
-  fs.renameSync(tmp, filePath);
+function sha256(input) {
+  return crypto.createHash('sha256').update(input).digest('hex');
+}
+
+function readJson(filePath) {
+  if (!fs.existsSync(filePath)) return null;
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
 function collectFilesMeta(currentDir, relativePaths) {
@@ -188,6 +179,19 @@ function acquireLock(lockPath) {
       }
     };
   } catch (error) {
+    if (error.code === 'EEXIST') {
+      try {
+        const pidContent = fs.readFileSync(lockPath, 'utf8').trim();
+        const pid = parseInt(pidContent, 10);
+        if (!isNaN(pid) && !isProcessRunning(pid)) {
+          console.error(`[context-pack] WARNING: cleaned stale lock (pid ${pid} no longer running)`);
+          fs.unlinkSync(lockPath);
+          return acquireLock(lockPath);
+        }
+      } catch (readError) {
+        // Fall through to original error if we can't read/process the lockfile
+      }
+    }
     throw new Error(`[context-pack] another seal is in progress (lock: ${lockPath}): ${error.message}`);
   }
 }
@@ -257,7 +261,7 @@ function main() {
     const previousStable = previous?.stable_checksum;
     const previousHead = previous?.head_sha;
 
-    writeTextAtomic(manifestPath, `${JSON.stringify(manifest.value, null, 2)}\n`);
+    safeWriteTextAtomic(manifestPath, `${JSON.stringify(manifest.value, null, 2)}\n`);
 
     const changed =
       opts.forceSnapshot ||
